@@ -78,7 +78,7 @@ export default function HomePage() {
         {/* Headline */}
         <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight max-w-3xl leading-[1.1] text-foreground">
           Everything connects. <br />
-          <span className="bg-gradient-to-r from-delta-600 via-indigo-500 to-sky-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-delta-600 via-violet-500 to-purple-600 bg-clip-text text-transparent">
             Fast, private, and unified.
           </span>
         </h1>

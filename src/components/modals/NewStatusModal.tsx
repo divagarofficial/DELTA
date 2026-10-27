@@ -12,11 +12,11 @@ interface NewStatusModalProps {
 export function NewStatusModal({ isOpen, onClose }: NewStatusModalProps) {
   const { createStatus } = useMessaging();
   const [content, setContent] = useState('');
-  const [selectedBg, setSelectedBg] = useState('#4F46E5');
+  const [selectedBg, setSelectedBg] = useState('#7C3AED');
 
   if (!isOpen) return null;
 
-  const bgColors = ['#4F46E5', '#0F172A', '#059669', '#DC2626', '#D97706', '#7C3AED'];
+  const bgColors = ['#7C3AED', '#6D28D9', '#4C1D95', '#0F172A', '#059669', '#DC2626'];
 
   const handleSubmit = () => {
     if (!content.trim()) return;

@@ -45,7 +45,7 @@ export function StatusViewerModal({ status, onClose }: StatusViewerModalProps) {
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4 select-none animate-fade-in">
       <div
         style={{
-          backgroundColor: status.media_type === 'text' ? status.background_color || '#4F46E5' : '#0F172A',
+          backgroundColor: status.media_type === 'text' ? status.background_color || '#7C3AED' : '#0F172A',
         }}
         className="w-full max-w-sm aspect-[9/16] rounded-3xl shadow-2xl relative overflow-hidden flex flex-col justify-between text-white border border-white/10"
       >

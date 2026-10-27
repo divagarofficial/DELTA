@@ -5,7 +5,7 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAFAF7",
-  "theme_color": "#4F46E5",
+  "theme_color": "#7C3AED",
   "icons": [
     {
       "src": "/delta-logo.svg",

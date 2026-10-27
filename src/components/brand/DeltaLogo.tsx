@@ -22,13 +22,13 @@ export function DeltaLogo({ className = '', size = 32, showText = true }: DeltaL
         >
           <defs>
             <linearGradient id="deltaLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#6366F1" />
-              <stop offset="50%" stopColor="#4F46E5" />
-              <stop offset="100%" stopColor="#3730A3" />
+              <stop offset="0%" stopColor="#8B5CF6" />
+              <stop offset="50%" stopColor="#7C3AED" />
+              <stop offset="100%" stopColor="#5B21B6" />
             </linearGradient>
             <linearGradient id="deltaLogoGlow" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#38BDF8" />
-              <stop offset="100%" stopColor="#818CF8" />
+              <stop offset="0%" stopColor="#C084FC" />
+              <stop offset="100%" stopColor="#E879F9" />
             </linearGradient>
           </defs>
 
@@ -46,9 +46,9 @@ export function DeltaLogo({ className = '', size = 32, showText = true }: DeltaL
           <path d="M 50,34 L 70,74 L 30,74 Z" fill="url(#deltaLogoGrad)" fillOpacity="0.16" />
 
           {/* Three Interconnected Apex Nodes: Everything connects */}
-          <circle cx="50" cy="15" r="5.5" fill="#38BDF8" />
-          <circle cx="85" cy="82" r="5.5" fill="#6366F1" />
-          <circle cx="15" cy="82" r="5.5" fill="#4338CA" />
+          <circle cx="50" cy="15" r="5.5" fill="#C084FC" />
+          <circle cx="85" cy="82" r="5.5" fill="#7C3AED" />
+          <circle cx="15" cy="82" r="5.5" fill="#5B21B6" />
 
           {/* Central Connecting Core */}
           <circle cx="50" cy="58" r="4" fill="url(#deltaLogoGlow)" />
