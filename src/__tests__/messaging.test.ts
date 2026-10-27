@@ -4,6 +4,8 @@ import {
   formatFileSize,
   formatDuration,
   getInitials,
+  normalizePhoneNumber,
+  isValidPhoneNumber,
 } from '@/lib/utils';
 import { ConversationMember, Message } from '@/types';
 
@@ -114,6 +116,57 @@ describe('Delta Messaging Utilities & Business Rules', () => {
       expect(total).toBe(1);
       expect(updatedOptions.find((o) => o.id === 'opt-2')?.votes_count).toBe(1);
       expect(updatedOptions.find((o) => o.id === 'opt-1')?.votes_count).toBe(0);
+    });
+  });
+
+  describe('Mobile Number Key Identity & Normalization', () => {
+    it('normalizes 10-digit Indian numbers with +91 country prefix', () => {
+      expect(normalizePhoneNumber('9876543210')).toBe('+919876543210');
+      expect(normalizePhoneNumber('+91 98765 43210')).toBe('+919876543210');
+      expect(normalizePhoneNumber('09876543210')).toBe('+919876543210');
+    });
+
+    it('validates 10-digit or valid international phone numbers', () => {
+      expect(isValidPhoneNumber('9876543210')).toBe(true);
+      expect(isValidPhoneNumber('+91 98765 43210')).toBe(true);
+      expect(isValidPhoneNumber('+1 555 123 4567')).toBe(true);
+      expect(isValidPhoneNumber('123')).toBe(false);
+      expect(isValidPhoneNumber('')).toBe(false);
+    });
+
+    it('resolves user identity by mobile number OR by username', () => {
+      const mockProfiles = [
+        { id: 'u1', username: 'aarav', display_name: 'Aarav Mehta', phone_number: '+91 98765 43210' },
+        { id: 'u2', username: 'priya', display_name: 'Priya Sharma', phone_number: '+91 98111 22334' },
+      ];
+
+      function findUserByIdentity(query: string) {
+        const trimmed = query.trim();
+        const digits = trimmed.replace(/\D/g, '');
+        const cleanUser = trimmed.toLowerCase().replace('@', '');
+
+        return mockProfiles.find((p) => {
+          if (digits.length >= 10 && p.phone_number.replace(/\D/g, '').endsWith(digits.slice(-10))) {
+            return true;
+          }
+          if (p.username.toLowerCase() === cleanUser) {
+            return true;
+          }
+          return false;
+        });
+      }
+
+      // Login by mobile number
+      expect(findUserByIdentity('9876543210')?.id).toBe('u1');
+      expect(findUserByIdentity('+91 98111 22334')?.id).toBe('u2');
+
+      // Login by username
+      expect(findUserByIdentity('aarav')?.id).toBe('u1');
+      expect(findUserByIdentity('@priya')?.id).toBe('u2');
+
+      // Nonexistent lookup
+      expect(findUserByIdentity('9999999999')).toBeUndefined();
+      expect(findUserByIdentity('unknown_user')).toBeUndefined();
     });
   });
 });

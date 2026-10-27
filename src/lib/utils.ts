@@ -82,3 +82,24 @@ export function getAvatarColor(identifier: string): string {
   const index = Math.abs(hash) % colors.length;
   return colors[index];
 }
+
+export function normalizePhoneNumber(phone: string): string {
+  if (!phone) return '';
+  const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+  if (cleaned.startsWith('+')) {
+    return cleaned;
+  }
+  if (cleaned.startsWith('0') && cleaned.length === 11) {
+    return '+91' + cleaned.substring(1);
+  }
+  if (cleaned.length === 10) {
+    return '+91' + cleaned;
+  }
+  return '+' + cleaned;
+}
+
+export function isValidPhoneNumber(phone: string): boolean {
+  if (!phone) return false;
+  const digitsOnly = phone.replace(/\D/g, '');
+  return digitsOnly.length >= 10 && digitsOnly.length <= 15;
+}

@@ -4,14 +4,23 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Profile } from '@/types';
 import { DEMO_PROFILES } from '@/data/mockData';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
+import { normalizePhoneNumber, isValidPhoneNumber } from '@/lib/utils';
+
+interface SignUpParams {
+  phoneNumber: string;
+  username: string;
+  displayName: string;
+  password?: string;
+  email?: string;
+}
 
 interface AuthContextType {
   currentUser: Profile | null;
   isLoading: boolean;
   isConfigured: boolean;
   isDemoMode: boolean;
-  signIn: (email: string, password?: string) => Promise<{ error?: string }>;
-  signUp: (email: string, password: string, username: string, displayName: string) => Promise<{ error?: string }>;
+  signIn: (identifier: string, password?: string) => Promise<{ error?: string }>;
+  signUp: (params: SignUpParams) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   switchDemoUser: (userId: string) => void;
@@ -51,8 +60,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Check localStorage for persisted demo user
       const storedUserId = typeof window !== 'undefined' ? localStorage.getItem('delta_demo_user_id') : null;
-      const found = DEMO_PROFILES.find((p) => p.id === storedUserId) || DEMO_PROFILES[0];
-      setCurrentUser(found);
+      let found = DEMO_PROFILES.find((p) => p.id === storedUserId);
+
+      // Check custom registered demo profiles from localStorage
+      if (!found && storedUserId && typeof window !== 'undefined') {
+        const customStored = localStorage.getItem(`delta_custom_profile_${storedUserId}`);
+        if (customStored) {
+          try {
+            found = JSON.parse(customStored);
+          } catch (e) {
+            console.error('Error parsing stored profile', e);
+          }
+        }
+      }
+
+      setCurrentUser(found || DEMO_PROFILES[0]);
       setIsDemoMode(true);
       setIsLoading(false);
     }
@@ -60,31 +82,102 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, [isConfigured]);
 
-  const signIn = async (email: string, password?: string): Promise<{ error?: string }> => {
+  // Sign In using Mobile Number OR Username
+  const signIn = async (identifier: string, password?: string): Promise<{ error?: string }> => {
     setIsLoading(true);
+    const trimmed = identifier.trim();
+
+    if (!trimmed) {
+      setIsLoading(false);
+      return { error: 'Please enter your mobile number or username.' };
+    }
+
+    const cleanedDigits = trimmed.replace(/\D/g, '');
+    const isPhoneQuery = cleanedDigits.length >= 10;
+    const cleanUsername = trimmed.toLowerCase().replace('@', '');
+
     if (isConfigured) {
       const supabase = createClient();
       if (supabase && password) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
+        try {
+          // Look up user by phone or username
+          let query = supabase.from('profiles').select('id, username, phone_number');
+          if (isPhoneQuery) {
+            query = query.ilike('phone_number', `%${cleanedDigits.slice(-10)}%`);
+          } else {
+            query = query.eq('username', cleanUsername);
+          }
+          const { data: matchedProfile, error: searchError } = await query.maybeSingle();
+
+          if (searchError || !matchedProfile) {
+            setIsLoading(false);
+            return { error: 'No Delta account found with this mobile number or username.' };
+          }
+
+          // In production with email-backed auth:
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: `${matchedProfile.username}@delta.app`,
+            password,
+          });
+
+          if (error) {
+            setIsLoading(false);
+            return { error: error.message };
+          }
+          if (data.user) {
+            const { data: fullProfile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', data.user.id)
+              .single();
+            if (fullProfile) setCurrentUser(fullProfile);
+            setIsDemoMode(false);
+            setIsLoading(false);
+            return {};
+          }
+        } catch (err: any) {
           setIsLoading(false);
-          return { error: error.message };
-        }
-        if (data.user) {
-          const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
-          if (profile) setCurrentUser(profile);
-          setIsDemoMode(false);
-          setIsLoading(false);
-          return {};
+          return { error: err.message || 'Authentication failed.' };
         }
       }
     }
 
-    // Demo Mode sign-in by username or email
-    const match = DEMO_PROFILES.find(
-      (p) => p.username.toLowerCase() === email.toLowerCase().replace('@', '') ||
-             email.toLowerCase().includes(p.username.toLowerCase())
-    ) || DEMO_PROFILES[0];
+    // Demo Mode: match by mobile number digits or username
+    // Also include any custom registered demo profiles stored locally
+    let allProfiles = [...DEMO_PROFILES];
+    if (typeof window !== 'undefined') {
+      const customKeys = Object.keys(localStorage).filter((k) => k.startsWith('delta_custom_profile_'));
+      for (const k of customKeys) {
+        try {
+          const item = JSON.parse(localStorage.getItem(k) || '');
+          if (item && item.id) allProfiles.push(item);
+        } catch (e) {}
+      }
+    }
+
+    const match = allProfiles.find((p) => {
+      // Check phone match
+      if (isPhoneQuery && p.phone_number) {
+        const profileDigits = p.phone_number.replace(/\D/g, '');
+        if (profileDigits.endsWith(cleanedDigits.slice(-10))) {
+          return true;
+        }
+      }
+      // Check username match
+      if (p.username.toLowerCase() === cleanUsername) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!match) {
+      setIsLoading(false);
+      return {
+        error: isPhoneQuery
+          ? `No Delta account found registered with mobile number "${trimmed}".`
+          : `No Delta account found with username "@${cleanUsername}".`,
+      };
+    }
 
     setCurrentUser(match);
     if (typeof window !== 'undefined') {
@@ -95,21 +188,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {};
   };
 
-  const signUp = async (
-    email: string,
-    password: string,
-    username: string,
-    displayName: string
-  ): Promise<{ error?: string }> => {
+  // Sign Up with MANDATORY Mobile Number as Key Identity
+  const signUp = async (params: SignUpParams): Promise<{ error?: string }> => {
     setIsLoading(true);
+    const { phoneNumber, username, displayName, password } = params;
+
+    // 1. Mandatory Mobile Number Validation
+    if (!phoneNumber || !phoneNumber.trim()) {
+      setIsLoading(false);
+      return { error: 'Mobile number is mandatory. Mobile number is the key identity for Delta.' };
+    }
+
+    if (!isValidPhoneNumber(phoneNumber)) {
+      setIsLoading(false);
+      return { error: 'Please enter a valid 10-digit mobile number.' };
+    }
+
+    // 2. Mandatory Username Validation
+    if (!username || !username.trim()) {
+      setIsLoading(false);
+      return { error: 'Username is mandatory.' };
+    }
+
+    // 3. Mandatory Display Name Validation
+    if (!displayName || !displayName.trim()) {
+      setIsLoading(false);
+      return { error: 'Display name is mandatory.' };
+    }
+
+    const normalizedPhone = normalizePhoneNumber(phoneNumber);
+    const cleanedDigits = normalizedPhone.replace(/\D/g, '').slice(-10);
+    const cleanUsername = username.toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+    // Check duplicate phone number in local profiles
+    const phoneExists = DEMO_PROFILES.some((p) =>
+      p.phone_number?.replace(/\D/g, '').endsWith(cleanedDigits)
+    );
+    if (phoneExists) {
+      setIsLoading(false);
+      return { error: 'A Delta account with this mobile number already exists. Please sign in.' };
+    }
+
+    // Check duplicate username in local profiles
+    const usernameExists = DEMO_PROFILES.some((p) => p.username.toLowerCase() === cleanUsername);
+    if (usernameExists) {
+      setIsLoading(false);
+      return { error: `The username @${cleanUsername} is already taken. Please choose another.` };
+    }
+
     if (isConfigured) {
       const supabase = createClient();
       if (supabase) {
+        const dummyEmail = `${cleanUsername}_${cleanedDigits}@delta.app`;
         const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
+          email: dummyEmail,
+          password: password || 'DeltaPass123!',
           options: {
-            data: { username, display_name: displayName },
+            data: {
+              username: cleanUsername,
+              display_name: displayName.trim(),
+              phone_number: normalizedPhone,
+            },
           },
         });
         if (error) {
@@ -119,8 +258,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data.user) {
           const newProfile: Profile = {
             id: data.user.id,
-            username,
-            display_name: displayName,
+            username: cleanUsername,
+            display_name: displayName.trim(),
+            phone_number: normalizedPhone,
             avatar_url: null,
             presence_status: 'online',
           };
@@ -132,15 +272,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Demo Mode Sign up: create custom local profile
+    // Demo Mode Sign up: create custom local profile with mandatory mobile number
     const newDemoProfile: Profile = {
       id: `user-${Date.now()}`,
-      username: username.toLowerCase().replace(/[^a-z0-9_]/g, ''),
-      display_name: displayName,
+      username: cleanUsername,
+      display_name: displayName.trim(),
+      phone_number: normalizedPhone,
       avatar_url: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
-      phone_number: '+91 99999 88888',
-      biography: 'New Delta Explorer',
-      status_message: 'Hello Delta! Everything connects.',
+      biography: 'Delta Member • Everything connects.',
+      status_message: 'Hey there! I am using Delta.',
       presence_status: 'online',
       last_seen_at: new Date().toISOString(),
       privacy_last_seen: 'everyone',

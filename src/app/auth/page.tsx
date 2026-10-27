@@ -6,12 +6,13 @@ import { DeltaLogo } from '@/components/brand/DeltaLogo';
 import { useAuth } from '@/context/AuthContext';
 import {
   Lock,
-  Mail,
+  Phone,
   User,
   ArrowRight,
   ShieldCheck,
   Sparkles,
   AlertCircle,
+  Smartphone,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -20,8 +21,13 @@ export default function AuthPage() {
   const { signIn, signUp, availableDemoUsers, switchDemoUser, isConfigured } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
+  // Sign in identifier: mobile number or username
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+
+  // Sign up fields: mobile number is mandatory and key identity
+  const [countryCode, setCountryCode] = useState('+91');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -33,7 +39,13 @@ export default function AuthPage() {
     setIsSubmitting(true);
 
     if (mode === 'signin') {
-      const res = await signIn(email, password);
+      if (!identifier.trim()) {
+        setErrorMsg('Please enter your mobile number or username.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const res = await signIn(identifier, password);
       if (res.error) {
         setErrorMsg(res.error);
         setIsSubmitting(false);
@@ -41,12 +53,21 @@ export default function AuthPage() {
         router.push('/');
       }
     } else {
-      if (!username.trim() || !displayName.trim()) {
-        setErrorMsg('Please provide a display name and username.');
+      // Sign Up: Mobile number is MANDATORY
+      if (!phoneNumber.trim()) {
+        setErrorMsg('Mobile number is mandatory. Mobile number is the key identity on Delta.');
         setIsSubmitting(false);
         return;
       }
-      const res = await signUp(email, password, username, displayName);
+
+      const fullPhone = `${countryCode} ${phoneNumber.trim()}`;
+      const res = await signUp({
+        phoneNumber: fullPhone,
+        username: username.trim(),
+        displayName: displayName.trim(),
+        password: password.trim(),
+      });
+
       if (res.error) {
         setErrorMsg(res.error);
         setIsSubmitting(false);
@@ -74,12 +95,12 @@ export default function AuthPage() {
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-foreground">
-                {mode === 'signin' ? 'Welcome Back' : 'Create Delta Account'}
+                {mode === 'signin' ? 'Sign in to Delta' : 'Create Delta Account'}
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {mode === 'signin'
-                  ? 'Sign in to access your secure conversations.'
-                  : 'Start communicating with speed and privacy.'}
+                  ? 'Login with your mobile number or username.'
+                  : 'Mobile number is mandatory and serves as your key identity.'}
               </p>
             </div>
             <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300">
@@ -95,8 +116,71 @@ export default function AuthPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
+            {/* 1. Sign In Mode Form */}
+            {mode === 'signin' && (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                  Mobile Number or Username
+                </label>
+                <div className="relative flex items-center">
+                  <Smartphone className="w-4 h-4 text-muted-foreground absolute left-3" />
+                  <input
+                    type="text"
+                    required
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="+91 98765 43210 or @username"
+                    className="w-full bg-muted text-foreground text-xs pl-9 pr-3 py-2.5 rounded-xl border border-transparent focus:border-border focus:bg-background focus:outline-none"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  You can log in using either your 10-digit mobile number or your @username.
+                </p>
+              </div>
+            )}
+
+            {/* 2. Sign Up Mode Form: Mobile Number is MANDATORY */}
             {mode === 'signup' && (
               <>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-delta-600" />
+                      Mobile Number
+                    </label>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300">
+                      Mandatory • Key Identity
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="bg-muted text-foreground text-xs px-2.5 py-2.5 rounded-xl border border-transparent focus:border-border focus:bg-background focus:outline-none font-mono shrink-0"
+                    >
+                      <option value="+91">🇮🇳 +91 (IN)</option>
+                      <option value="+1">🇺🇸 +1 (US)</option>
+                      <option value="+44">🇬🇧 +44 (UK)</option>
+                      <option value="+971">🇦🇪 +971 (AE)</option>
+                      <option value="+65">🇸🇬 +65 (SG)</option>
+                    </select>
+
+                    <input
+                      type="tel"
+                      required
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ''))}
+                      placeholder="98765 43210 (10 digits)"
+                      maxLength={12}
+                      className="flex-1 bg-muted text-foreground text-xs px-3 py-2.5 rounded-xl border border-transparent focus:border-border focus:bg-background focus:outline-none font-mono"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Your mobile number is your primary identity on Delta to connect with friends and teams.
+                  </p>
+                </div>
+
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground block mb-1">
                     Display Name
@@ -116,7 +200,7 @@ export default function AuthPage() {
 
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                    Unique Username
+                    Unique Delta Username
                   </label>
                   <div className="relative flex items-center bg-muted rounded-xl px-3 border border-transparent focus-within:border-border focus-within:bg-background">
                     <span className="text-muted-foreground font-mono text-xs">@</span>
@@ -134,23 +218,6 @@ export default function AuthPage() {
                 </div>
               </>
             )}
-
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                Email Address or Username
-              </label>
-              <div className="relative flex items-center">
-                <Mail className="w-4 h-4 text-muted-foreground absolute left-3" />
-                <input
-                  type="text"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com or @username"
-                  className="w-full bg-muted text-foreground text-xs pl-9 pr-3 py-2.5 rounded-xl border border-transparent focus:border-border focus:bg-background focus:outline-none"
-                />
-              </div>
-            </div>
 
             <div>
               <label className="text-xs font-semibold text-muted-foreground block mb-1">
@@ -174,7 +241,7 @@ export default function AuthPage() {
               disabled={isSubmitting}
               className="w-full py-3 rounded-xl bg-delta-600 text-white font-bold text-xs hover:bg-delta-700 disabled:opacity-50 transition-all shadow-sm active:scale-98 flex items-center justify-center gap-1.5 mt-2"
             >
-              <span>{mode === 'signin' ? 'Sign In to Delta' : 'Create Account'}</span>
+              <span>{mode === 'signin' ? 'Sign In to Delta' : 'Register with Mobile Number'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -189,15 +256,15 @@ export default function AuthPage() {
               className="text-xs text-delta-600 hover:text-delta-700 font-semibold"
             >
               {mode === 'signin'
-                ? "Don't have an account? Sign Up"
+                ? "Don't have an account? Register with Mobile Number"
                 : 'Already have an account? Sign In'}
             </button>
           </div>
 
-          {/* Quick Demo Switcher */}
+          {/* Quick Demo Personas with Mobile Numbers & Usernames */}
           <div className="mt-6 pt-5 border-t border-border">
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 text-center">
-              One-Click Interactive Personas
+              Quick Test Personas (Mobile / Username)
             </p>
             <div className="grid grid-cols-2 gap-2">
               {availableDemoUsers.slice(0, 4).map((p) => (
@@ -209,8 +276,9 @@ export default function AuthPage() {
                   <div className="w-7 h-7 rounded-full overflow-hidden bg-card shrink-0">
                     <img src={p.avatar_url || ''} alt="" className="w-full h-full object-cover" />
                   </div>
-                  <div className="truncate">
+                  <div className="truncate min-w-0">
                     <p className="font-semibold text-foreground truncate">{p.display_name}</p>
+                    <p className="text-[10px] text-delta-600 font-mono truncate">{p.phone_number}</p>
                     <p className="text-[10px] text-muted-foreground truncate">@{p.username}</p>
                   </div>
                 </button>
