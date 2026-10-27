@@ -559,8 +559,29 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
                     </div>
                   )}
 
+                  {/* Call Log Message Bubble */}
+                  {msg.type === 'call' && (
+                    <div className="flex items-center gap-2.5 py-1">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          isOwn ? 'bg-white/20' : 'bg-delta-100 dark:bg-delta-950 text-delta-600'
+                        }`}
+                      >
+                        {msg.content.includes('Video') ? (
+                          <Video className="w-4 h-4" />
+                        ) : (
+                          <Phone className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold leading-tight">{msg.content}</p>
+                        <p className="text-[10px] opacity-75">WebRTC Encrypted Call</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Text Content */}
-                  {msg.type !== 'poll' && (
+                  {msg.type !== 'poll' && msg.type !== 'call' && (
                     <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                       {msg.content}
                     </p>

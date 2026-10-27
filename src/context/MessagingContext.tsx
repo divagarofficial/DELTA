@@ -79,7 +79,7 @@ interface MessagingContextType {
   viewStatus: (statusId: string) => void;
   votePoll: (messageId: string, optionId: string) => void;
   startCall: (targetProfile: Profile, callType: CallType) => void;
-  endCall: () => void;
+  endCall: (durationSeconds?: number) => void;
   toggleMute: () => void;
   toggleVideo: () => void;
   isMuted: boolean;
@@ -722,7 +722,26 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     }, 2500);
   };
 
-  const endCall = () => {
+  const endCall = (durationSeconds: number = 0) => {
+    if (activeCall && activeConversation) {
+      const isVideo = activeCall.call_type === 'video';
+      const durationLabel = durationSeconds > 0 ? ` (${formatDuration(durationSeconds)})` : '';
+      const callMsg: Message = {
+        id: `msg-call-${Date.now()}`,
+        conversation_id: activeConversation.id,
+        sender_id: currentUser?.id || 'user-aarav',
+        content: `${isVideo ? '📹 Video Call' : '📞 Voice Call'}${durationLabel}`,
+        type: 'call',
+        created_at: new Date().toISOString(),
+        status: 'read',
+      };
+      setMessagesMap((prev) => {
+        const list = prev[activeConversation.id] || [];
+        const updated = [...list, callMsg];
+        persistState(conversations, { ...prev, [activeConversation.id]: updated });
+        return { ...prev, [activeConversation.id]: updated };
+      });
+    }
     setActiveCall(null);
   };
 
