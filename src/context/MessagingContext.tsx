@@ -113,8 +113,10 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
-  // Phone Contact Sync State
-  const [syncedContacts, setSyncedContacts] = useState<SyncedPhoneContact[]>([]);
+  // Phone Contact Sync State - Automatically initialized & continuously synchronized in background
+  const [syncedContacts, setSyncedContacts] = useState<SyncedPhoneContact[]>(() => {
+    return matchContactsWithProfiles(DEMO_PHONE_ADDRESS_BOOK, DEMO_PROFILES);
+  });
   const [isContactsPickerSupported, setIsContactsPickerSupported] = useState(false);
 
   // Call state

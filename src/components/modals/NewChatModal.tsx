@@ -37,7 +37,7 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
   } = useMessaging();
   const { currentUser, availableDemoUsers } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'direct' | 'group' | 'contacts'>('direct');
+  const [activeTab, setActiveTab] = useState<'direct' | 'group' | 'contacts'>('contacts');
   const [searchQuery, setSearchQuery] = useState('');
   const [groupTitle, setGroupTitle] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -167,18 +167,6 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
         <div className="p-4 border-b border-border flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs font-semibold overflow-x-auto">
             <button
-              onClick={() => setActiveTab('direct')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
-                activeTab === 'direct'
-                  ? 'bg-card text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              Direct Message
-            </button>
-
-            <button
               onClick={() => setActiveTab('contacts')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
                 activeTab === 'contacts'
@@ -188,6 +176,18 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
             >
               <Smartphone className="w-3.5 h-3.5 text-delta-600" />
               Phone Contacts ({syncedContacts.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('direct')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                activeTab === 'direct'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              Direct Message
             </button>
 
             <button
@@ -211,22 +211,20 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
           </button>
         </div>
 
-        {/* Tab 1: Direct Message */}
+        {/* Tab 2: Direct Message */}
         {activeTab === 'direct' && (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Quick banner to switch to Phone Contacts */}
-            <div className="bg-delta-50 dark:bg-delta-950/60 border-b border-delta-100 dark:border-delta-900/60 px-4 py-2.5 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 text-delta-800 dark:text-delta-200">
-                <Smartphone className="w-4 h-4 text-delta-600 shrink-0" />
-                <span className="font-medium text-[11px]">
-                  Sync contacts from phone to find registered users automatically.
-                </span>
+            {/* Info notice showing auto-sync is active */}
+            <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center justify-between text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <Smartphone className="w-3.5 h-3.5 text-delta-600 shrink-0" />
+                <span>Phone contacts are automatically synchronized in background.</span>
               </div>
               <button
                 onClick={() => setActiveTab('contacts')}
-                className="text-[11px] font-bold text-delta-700 dark:text-delta-300 hover:underline shrink-0 ml-2"
+                className="font-bold text-delta-600 hover:underline shrink-0"
               >
-                Sync Contacts &rarr;
+                View Phone Contacts &rarr;
               </button>
             </div>
 
@@ -281,24 +279,32 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
           </div>
         )}
 
-        {/* Tab 2: Phone Contacts Sync (New WhatsApp / Telegram Feature) */}
+        {/* Tab 1: Phone Contacts (Auto-Synced with Device Address Book) */}
         {activeTab === 'contacts' && (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Action Bar */}
-            <div className="p-3 border-b border-border bg-muted/20 flex flex-wrap items-center justify-between gap-2">
+            {/* Automatic Phone Sync Status & Quick Tools */}
+            <div className="px-3.5 py-2.5 border-b border-border bg-delta-50/50 dark:bg-delta-950/30 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[11px] font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Auto-Synced with Phone</span>
+                </div>
                 <button
                   onClick={handleSyncContacts}
                   disabled={isSyncing}
-                  className="px-3 py-1.5 rounded-xl bg-delta-600 text-white text-xs font-bold hover:bg-delta-700 disabled:opacity-50 transition-colors flex items-center gap-1.5 shadow-xs"
+                  title="Check for newly added phone contacts"
+                  aria-label="Sync Phone Contacts"
+                  className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isContactsPickerSupported ? 'Sync Device Contacts' : 'Sync Phone Contacts'}</span>
                 </button>
+              </div>
 
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-xl bg-card border border-border text-foreground text-xs font-semibold hover:bg-muted transition-colors flex items-center gap-1.5"
+                  title="Import contacts from .vcf or .csv address book"
+                  className="px-2.5 py-1 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:bg-muted transition-colors flex items-center gap-1.5"
                 >
                   <Upload className="w-3.5 h-3.5 text-muted-foreground" />
                   <span>Import .vcf / .csv</span>
@@ -310,15 +316,15 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
                   onChange={handleFileUpload}
                   className="hidden"
                 />
-              </div>
 
-              <button
-                onClick={() => setShowAddContactForm((prev) => !prev)}
-                className="px-2.5 py-1.5 rounded-xl bg-card border border-border text-foreground text-xs font-semibold hover:bg-muted transition-colors flex items-center gap-1"
-              >
-                <UserPlus className="w-3.5 h-3.5 text-delta-600" />
-                <span>{showAddContactForm ? 'Close' : 'Add Number'}</span>
-              </button>
+                <button
+                  onClick={() => setShowAddContactForm((prev) => !prev)}
+                  className="px-2.5 py-1 rounded-lg bg-delta-600 text-white text-xs font-bold hover:bg-delta-700 transition-colors flex items-center gap-1 shadow-xs"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>{showAddContactForm ? 'Close' : 'Add Number'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Sync Feedback Alert */}

@@ -145,20 +145,10 @@ test.describe('Delta Web Messaging Platform - E2E Verification', () => {
     const newChatBtn = page.locator('button[aria-label="New Chat"]');
     await newChatBtn.click();
 
-    // Verify New Chat modal opened with tabs
-    await expect(page.locator('button:has-text("Direct Message")')).toBeVisible();
+    // Verify New Chat modal opened with auto-synced phone contacts by default
+    await expect(page.locator('text=Auto-Synced with Phone')).toBeVisible();
 
-    // Switch to Phone Contacts tab
-    const phoneContactsTab = page.locator('button:has-text("Phone Contacts")');
-    await expect(phoneContactsTab).toBeVisible();
-    await phoneContactsTab.click();
-
-    // Verify phone contact sync UI controls
-    const syncBtn = page.locator('button:has-text("Sync Phone Contacts"), button:has-text("Sync Device Contacts")').first();
-    await expect(syncBtn).toBeVisible();
-    await syncBtn.click();
-
-    // Verify synced contact sections appear
+    // Verify synced contact sections appear immediately without manual sync
     await expect(page.locator('text=Contacts on Delta')).toBeVisible();
     await expect(page.locator('text=Invite to Delta')).toBeVisible();
 
@@ -169,6 +159,11 @@ test.describe('Delta Web Messaging Platform - E2E Verification', () => {
     await expect(page.locator('text=Dr. Neha Sen')).toBeVisible();
     await expect(page.locator('button:has-text("Invite")').first()).toBeVisible();
 
+    // Capture visual screenshot of the automatically synced contacts modal
+    await page.screenshot({
+      path: 'C:/Users/ediva/.gemini/antigravity-ide/brain/6314fabf-031b-4bd4-93a7-4378dabf450b/auto_synced_phone_contacts_active.png',
+    });
+
     // Click Message button on matched contact Arjun Patel
     const arjunMessageBtn = page.locator('button[data-testid="message-contact-user-arjun"]');
     await expect(arjunMessageBtn).toBeVisible();
@@ -177,6 +172,16 @@ test.describe('Delta Web Messaging Platform - E2E Verification', () => {
     // Modal should close and active chat should switch to Arjun Patel
     await expect(page.locator('button:has-text("Direct Message")')).not.toBeVisible();
     await expect(page.locator('h2:has-text("Arjun Patel")')).toBeVisible();
+
+    // Now open Settings modal and verify Contacts & Sync tab
+    await page.locator('button[aria-label="Settings"]').click();
+    await page.locator('button:has-text("Contacts & Sync")').click();
+    await expect(page.locator('text=Automatic Background Sync Active')).toBeVisible();
+
+    // Capture visual screenshot of the Settings Contacts & Sync tab
+    await page.screenshot({
+      path: 'C:/Users/ediva/.gemini/antigravity-ide/brain/6314fabf-031b-4bd4-93a7-4378dabf450b/auto_synced_settings_tab.png',
+    });
   });
 });
 

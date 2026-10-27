@@ -210,8 +210,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     {syncedContacts.filter((c) => c.is_on_delta).length} on Delta
                   </span>
                 </div>
+
+                <div className="mb-3 flex items-center gap-2 p-2 rounded-lg bg-emerald-100/70 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Automatic Background Sync Active • Always Up to Date</span>
+                </div>
+
                 <p className="text-muted-foreground text-[11px] leading-relaxed">
-                  Delta securely matches 10-digit mobile numbers from your phone address book against registered users so you can instantly message friends without sharing unhashed address book data.
+                  Delta automatically synchronizes and matches 10-digit mobile numbers from your phone address book against registered users in real time. No manual synchronization is ever required.
                 </p>
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -225,10 +231,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       setTimeout(() => setSyncFeedback(''), 4000);
                     }}
                     disabled={isSyncing}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-delta-600 text-white font-bold hover:bg-delta-700 disabled:opacity-50 transition-colors shadow-xs"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border text-foreground font-semibold hover:bg-muted disabled:opacity-50 transition-colors shadow-xs"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                    <span>{isContactsPickerSupported ? 'Sync Device Contacts' : 'Sync Phone Contacts'}</span>
+                    <span>{isContactsPickerSupported ? 'Re-check Device Contacts' : 'Sync Phone Contacts'}</span>
                   </button>
 
                   <button
