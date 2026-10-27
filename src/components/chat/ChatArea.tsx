@@ -57,7 +57,7 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
     isTyping,
     clearChat,
   } = useMessaging();
-  const { currentUser } = useAuth();
+  const { currentUser, availableDemoUsers } = useAuth();
 
   const [textInput, setTextInput] = useState('');
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -115,14 +115,16 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
     );
   }
 
-  // Partner profile for 1-to-1 calls
+  // Partner profile for 1-to-1 calls and recipient identity
   const partnerProfile =
     activeConversation.type === 'direct'
-      ? DEMO_PROFILES.find((p) =>
+      ? availableDemoUsers.find((p) =>
           activeConversation.members?.some(
             (m) => m.user_id === p.id && p.id !== currentUser?.id
           )
-        ) || DEMO_PROFILES[1]
+        ) ||
+        availableDemoUsers.find((p) => p.display_name === activeConversation.title) ||
+        DEMO_PROFILES[1]
       : null;
 
   const typingNames = isTyping[activeConversation.id] || [];

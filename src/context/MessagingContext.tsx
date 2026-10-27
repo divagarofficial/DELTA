@@ -178,6 +178,54 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     });
   }, [availableDemoUsers]);
 
+  // Cross-tab & Real-time multi-window synchronization
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+
+    const bc = new BroadcastChannel('delta_realtime_sync');
+    bc.onmessage = (event) => {
+      const data = event.data;
+      if (!data) return;
+
+      if (data.type === 'NEW_MESSAGE' && data.convId && data.message) {
+        setMessagesMap((prev) => {
+          const currentList = prev[data.convId] || [];
+          if (currentList.some((m) => m.id === data.message.id)) return prev;
+          return { ...prev, [data.convId]: [...currentList, data.message] };
+        });
+
+        setConversations((prev) => {
+          const updated = prev.map((c) =>
+            c.id === data.convId
+              ? {
+                  ...c,
+                  updated_at: data.message.created_at,
+                  last_message: data.message,
+                  unread_count:
+                    c.id !== activeConversationId ? (c.unread_count || 0) + 1 : c.unread_count,
+                }
+              : c
+          );
+          return [...updated].sort(
+            (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          );
+        });
+      } else if (data.type === 'MESSAGE_STATUS' && data.convId && data.messageId) {
+        setMessagesMap((prev) => {
+          const currentList = prev[data.convId] || [];
+          const updated = currentList.map((m) =>
+            m.id === data.messageId ? { ...m, status: data.status, is_optimistic: false } : m
+          );
+          return { ...prev, [data.convId]: updated };
+        });
+      }
+    };
+
+    return () => {
+      bc.close();
+    };
+  }, [activeConversationId]);
+
   // Sync to localStorage
   const persistState = useCallback((newConvs: Conversation[], newMsgs: Record<string, Message[]>, newStats?: DeltaStatus[]) => {
     if (typeof window !== 'undefined') {
@@ -318,6 +366,19 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    // Broadcast to other open tabs / windows in real-time
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('delta_realtime_sync');
+        bc.postMessage({
+          type: 'NEW_MESSAGE',
+          convId: activeConversationId,
+          message: optimisticMsg,
+        });
+        bc.close();
+      } catch (e) { console.error(e); }
+    }
+
     // In Demo Mode: Simulate realistic Delivery & Read receipts progression
     setTimeout(() => {
       setMessagesMap((prev) => ({
@@ -326,6 +387,13 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           m.id === tempId ? { ...m, is_optimistic: false, status: 'delivered' } : m
         ),
       }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('delta_realtime_sync');
+          bc.postMessage({ type: 'MESSAGE_STATUS', convId: activeConversationId, messageId: tempId, status: 'delivered' });
+          bc.close();
+        } catch (e) {}
+      }
     }, 700);
 
     setTimeout(() => {
@@ -335,27 +403,50 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           m.id === tempId ? { ...m, status: 'read' } : m
         ),
       }));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('delta_realtime_sync');
+          bc.postMessage({ type: 'MESSAGE_STATUS', convId: activeConversationId, messageId: tempId, status: 'read' });
+          bc.close();
+        } catch (e) {}
+      }
     }, 1800);
 
-    // In Demo Mode: Trigger intelligent simulated conversational reply if chatting with Priya, Arjun, or group
+    // In Demo Mode: Trigger intelligent simulated conversational reply strictly from the correct person
     const targetConv = conversations.find((c) => c.id === activeConversationId);
     if (targetConv && targetConv.type !== 'channel') {
       simulateDemoReply(activeConversationId, content, targetConv);
     }
   };
 
-  // Simulated intelligent assistant / persona reply for demo mode
+  // Simulated intelligent persona reply strictly from the conversation recipient
   const simulateDemoReply = (convId: string, userMsg: string, conv: Conversation) => {
-    let responder = DEMO_PROFILES[1]; // Priya Sharma by default
-    if (convId === 'conv-arjun') responder = DEMO_PROFILES[2]; // Arjun Patel
-    if (conv.type === 'group') responder = DEMO_PROFILES[3]; // Ananya Iyer
+    let responder: Profile | undefined;
+    if (conv.type === 'group') {
+      const otherMember = conv.members?.find((m) => m.user_id !== currentUser?.id);
+      responder = availableDemoUsers.find((p) => p.id === otherMember?.user_id) || DEMO_PROFILES[3];
+    } else {
+      const otherMember = conv.members?.find((m) => m.user_id !== currentUser?.id);
+      if (otherMember) {
+        responder = availableDemoUsers.find((p) => p.id === otherMember.user_id);
+      }
+      if (!responder && conv.title) {
+        responder = availableDemoUsers.find((p) => p.display_name === conv.title || p.username === conv.title);
+      }
+      if (!responder) {
+        responder = DEMO_PROFILES[1];
+      }
+    }
 
-    // Show typing indicator after 1.5s
+    const responderName = responder.display_name;
+    const firstName = responderName.split(' ')[0];
+
+    // Show typing indicator after 1.2s
     setTimeout(() => {
-      setIsTyping((prev) => ({ ...prev, [convId]: [responder.display_name] }));
-    }, 1500);
+      setIsTyping((prev) => ({ ...prev, [convId]: [responderName] }));
+    }, 1200);
 
-    // Send reply after 3.2s
+    // Send reply after 2.8s
     setTimeout(() => {
       setIsTyping((prev) => {
         const copy = { ...prev };
@@ -367,13 +458,17 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       const lower = userMsg.toLowerCase();
 
       if (lower.includes('call') || lower.includes('voice') || lower.includes('video')) {
-        replyText = `I'm ready for the call! Tap the audio or video icon above to start the WebRTC connection.`;
+        replyText = `Hey, ${firstName} here! I'm ready for the call. Tap the audio or video icon above to start the WebRTC connection.`;
       } else if (lower.includes('supabase') || lower.includes('database') || lower.includes('rls')) {
         replyText = `The Row Level Security policies and PostgreSQL migrations are all in place. All user boundaries are strictly enforced!`;
       } else if (lower.includes('poll')) {
         replyText = `Great question! I just reviewed the options and cast my vote.`;
       } else if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
-        replyText = `Hey there! Delta is running fast and smoothly. How can I help with the testing?`;
+        replyText = `Hey there! This is ${firstName}. Delta delivered your message instantly. How can I help?`;
+      } else if (lower.includes('where') || lower.includes('who') || lower.includes('person') || lower.includes('correct')) {
+        replyText = `You're chatting with ${responderName} (@${responder.username}). Messages here are private and delivered directly to my thread.`;
+      } else {
+        replyText = `Got your message! Delivered directly to ${firstName}. Delta's messaging is running smooth and fast.`;
       }
 
       const botMsg: Message = {
@@ -401,7 +496,16 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         updated.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
         return updated;
       });
-    }, 3200);
+
+      // Broadcast reply to other open tabs
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        try {
+          const bc = new BroadcastChannel('delta_realtime_sync');
+          bc.postMessage({ type: 'NEW_MESSAGE', convId, message: botMsg });
+          bc.close();
+        } catch (e) {}
+      }
+    }, 2800);
   };
 
   // Edit message
@@ -476,7 +580,9 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
   // Create new conversation
   const createConversation = (targetUserId: string, title?: string, isGroup?: boolean): string => {
-    const targetUser = DEMO_PROFILES.find((p) => p.id === targetUserId);
+    const targetUser =
+      availableDemoUsers.find((p) => p.id === targetUserId) ||
+      DEMO_PROFILES.find((p) => p.id === targetUserId);
     const existing = conversations.find(
       (c) =>
         !isGroup &&

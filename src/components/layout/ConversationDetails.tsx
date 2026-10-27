@@ -27,7 +27,7 @@ interface ConversationDetailsProps {
 
 export function ConversationDetails({ onClose }: ConversationDetailsProps) {
   const { activeConversation, startCall, toggleMuteConversation } = useMessaging();
-  const { currentUser } = useAuth();
+  const { currentUser, availableDemoUsers } = useAuth();
   const [disappearingDuration, setDisappearingDuration] = useState('0');
   const [isBlocked, setIsBlocked] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
@@ -39,11 +39,13 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
   const isGroup = activeConversation.type === 'group';
   const partnerProfile =
     !isGroup
-      ? DEMO_PROFILES.find((p) =>
+      ? availableDemoUsers.find((p) =>
           activeConversation.members?.some(
             (m) => m.user_id === p.id && p.id !== currentUser?.id
           )
-        ) || DEMO_PROFILES[1]
+        ) ||
+        availableDemoUsers.find((p) => p.display_name === activeConversation.title) ||
+        DEMO_PROFILES[1]
       : null;
 
   const handleReport = () => {
@@ -181,25 +183,43 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
             </span>
           </div>
           <div className="space-y-2">
-            {DEMO_PROFILES.slice(0, 4).map((member, i) => (
-              <div key={member.id} className="flex items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 rounded-full overflow-hidden bg-muted shrink-0 flex items-center justify-center font-bold text-[10px]">
-                    {member.avatar_url ? (
-                      <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      getInitials(member.display_name)
-                    )}
+            {(activeConversation.members && activeConversation.members.length > 0
+              ? activeConversation.members
+              : DEMO_PROFILES.slice(0, 4).map((p, i) => ({
+                  id: `m-fallback-${p.id}`,
+                  conversation_id: activeConversation.id,
+                  user_id: p.id,
+                  role: i === 0 ? ('admin' as const) : ('member' as const),
+                  joined_at: new Date().toISOString(),
+                }))
+            ).map((m, i) => {
+              const member =
+                availableDemoUsers.find((p) => p.id === m.user_id) ||
+                DEMO_PROFILES.find((p) => p.id === m.user_id) || {
+                  id: m.user_id,
+                  display_name: 'Member',
+                  avatar_url: null,
+                };
+              return (
+                <div key={m.id || member.id} className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-full overflow-hidden bg-muted shrink-0 flex items-center justify-center font-bold text-[10px]">
+                      {member.avatar_url ? (
+                        <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        getInitials(member.display_name)
+                      )}
+                    </div>
+                    <span className="truncate font-medium text-foreground">
+                      {member.display_name} {member.id === currentUser?.id ? '(You)' : ''}
+                    </span>
                   </div>
-                  <span className="truncate font-medium text-foreground">
-                    {member.display_name} {member.id === currentUser?.id ? '(You)' : ''}
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
+                    {m.role === 'admin' || i === 0 ? 'Admin' : 'Member'}
                   </span>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">
-                  {i === 0 ? 'Admin' : 'Member'}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

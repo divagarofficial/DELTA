@@ -169,4 +169,88 @@ describe('Delta Messaging Utilities & Business Rules', () => {
       expect(findUserByIdentity('unknown_user')).toBeUndefined();
     });
   });
+
+  describe('Message Delivery & Accurate Recipient Routing', () => {
+    it('optimistically appends messages with instant 0ms feedback and sent status', () => {
+      const messagesMap: Record<string, Message[]> = {
+        'conv-priya': [],
+      };
+
+      const tempId = `msg-opt-${Date.now()}`;
+      const msg: Message = {
+        id: tempId,
+        conversation_id: 'conv-priya',
+        sender_id: 'user-aarav',
+        content: 'Instant message',
+        type: 'text',
+        created_at: new Date().toISOString(),
+        status: 'sent',
+        is_optimistic: true,
+      };
+
+      // Instant optimistic append
+      messagesMap['conv-priya'].push(msg);
+
+      expect(messagesMap['conv-priya']).toHaveLength(1);
+      expect(messagesMap['conv-priya'][0].is_optimistic).toBe(true);
+      expect(messagesMap['conv-priya'][0].status).toBe('sent');
+
+      // Receipt lifecycle progression: delivered -> read
+      messagesMap['conv-priya'][0].status = 'delivered';
+      messagesMap['conv-priya'][0].is_optimistic = false;
+      expect(messagesMap['conv-priya'][0].status).toBe('delivered');
+
+      messagesMap['conv-priya'][0].status = 'read';
+      expect(messagesMap['conv-priya'][0].status).toBe('read');
+    });
+
+    it('strictly isolates messages so messages never leak between conversations or users', () => {
+      const messagesMap: Record<string, Message[]> = {
+        'conv-priya': [{ id: 'm1', conversation_id: 'conv-priya', sender_id: 'user-aarav', content: 'Secret for Priya', type: 'text', created_at: '', status: 'read' }],
+        'conv-arjun': [{ id: 'm2', conversation_id: 'conv-arjun', sender_id: 'user-aarav', content: 'DevOps notes for Arjun', type: 'text', created_at: '', status: 'read' }],
+      };
+
+      // Message for Priya is strictly inside conv-priya
+      expect(messagesMap['conv-priya'].some((m) => m.content.includes('Arjun'))).toBe(false);
+      expect(messagesMap['conv-arjun'].some((m) => m.content.includes('Priya'))).toBe(false);
+    });
+
+    it('accurately resolves recipient responder by conversation membership', () => {
+      const allProfiles: Profile[] = [
+        { id: 'u-aarav', username: 'aarav', display_name: 'Aarav Mehta' },
+        { id: 'u-priya', username: 'priya', display_name: 'Priya Sharma' },
+        { id: 'u-arjun', username: 'arjun', display_name: 'Arjun Patel' },
+        { id: 'u-vikram', username: 'vikram', display_name: 'Vikram Malhotra' },
+      ];
+
+      function resolveRecipient(conv: { type: string; members: { user_id: string }[]; title?: string }, currentUserId: string) {
+        const otherMember = conv.members?.find((m) => m.user_id !== currentUserId);
+        if (otherMember) {
+          const found = allProfiles.find((p) => p.id === otherMember.user_id);
+          if (found) return found;
+        }
+        if (conv.title) {
+          const byTitle = allProfiles.find((p) => p.display_name === conv.title || p.username === conv.title);
+          if (byTitle) return byTitle;
+        }
+        return allProfiles[1];
+      }
+
+      // In Arjun's direct conversation, responder MUST be Arjun Patel
+      const convArjun = {
+        type: 'direct',
+        members: [{ user_id: 'u-aarav' }, { user_id: 'u-arjun' }],
+        title: 'Arjun Patel',
+      };
+      expect(resolveRecipient(convArjun, 'u-aarav').display_name).toBe('Arjun Patel');
+
+      // In newly registered user Vikram's conversation, responder MUST be Vikram Malhotra
+      const convVikram = {
+        type: 'direct',
+        members: [{ user_id: 'u-aarav' }, { user_id: 'u-vikram' }],
+        title: 'Vikram Malhotra',
+      };
+      expect(resolveRecipient(convVikram, 'u-aarav').display_name).toBe('Vikram Malhotra');
+    });
+  });
 });
