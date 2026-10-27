@@ -20,6 +20,7 @@ export interface Profile {
   privacy_last_seen?: PrivacySetting;
   privacy_read_receipts?: boolean;
   privacy_profile_photo?: PrivacySetting;
+  privacy_phone_number?: PrivacySetting;
   created_at?: string;
   updated_at?: string;
 }

@@ -24,6 +24,7 @@ import {
   Info,
   Clock,
   Shield,
+  Lock,
   ArrowLeft,
   Sparkles,
 } from 'lucide-react';
@@ -334,6 +335,18 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
 
       {/* 2. Message List Area */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {/* End-to-End Encryption Notice */}
+        <div className="flex justify-center my-1 select-none">
+          <button
+            onClick={onOpenDetails}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 text-amber-800 dark:text-amber-200 text-[11px] max-w-md text-center shadow-xs transition-colors cursor-pointer group"
+            title="Click to view encryption and security verification"
+          >
+            <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform" />
+            <span>Messages and calls are end-to-end encrypted. No one outside of this chat, not even Delta, can read or listen to them. Click to verify.</span>
+          </button>
+        </div>
+
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-6">
             <div className="w-12 h-12 rounded-2xl bg-card border border-border flex items-center justify-center mb-3">

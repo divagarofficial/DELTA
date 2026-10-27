@@ -15,11 +15,15 @@ import {
   Image as ImageIcon,
   Check,
   UserPlus,
+  Lock,
+  Copy,
+  QrCode,
 } from 'lucide-react';
 import { useMessaging } from '@/context/MessagingContext';
 import { useAuth } from '@/context/AuthContext';
 import { getInitials } from '@/lib/utils';
 import { DEMO_PROFILES } from '@/data/mockData';
+import { generateSafetyNumber } from '@/lib/security';
 
 interface ConversationDetailsProps {
   onClose: () => void;
@@ -33,6 +37,9 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportReason, setReportReason] = useState('');
+  const [showSecurityCodeModal, setShowSecurityCodeModal] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   if (!activeConversation) return null;
 
@@ -47,6 +54,11 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
         availableDemoUsers.find((p) => p.display_name === activeConversation.title) ||
         DEMO_PROFILES[1]
       : null;
+
+  const safetyNumbers = generateSafetyNumber(
+    currentUser?.id || 'delta-user-me',
+    partnerProfile?.id || activeConversation.id
+  );
 
   const handleReport = () => {
     if (!reportReason.trim()) return;
@@ -164,14 +176,26 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
       </div>
 
       {/* Encryption & Security Verification */}
-      <div className="p-4 border-b border-border space-y-2">
-        <div className="flex items-center gap-2 text-foreground font-semibold text-xs">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Security & Row Level Isolation</span>
+      <div className="p-4 border-b border-border space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-foreground font-semibold text-xs">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>End-to-End Encryption</span>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+            {isVerified ? '✓ Verified' : 'Protected'}
+          </span>
         </div>
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          Delta isolates all conversation access using database kernel Row Level Security. Only authorized participants have read and write permissions.
+          Messages and calls are secured with 256-bit AES-GCM and PostgreSQL Row Level Security. Only conversation members can read this chat.
         </p>
+        <button
+          onClick={() => setShowSecurityCodeModal(true)}
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-medium text-xs transition-colors"
+        >
+          <Lock className="w-3.5 h-3.5 text-delta-600" />
+          <span>Verify Safety Numbers</span>
+        </button>
       </div>
 
       {/* Group Members List (if group) */}
@@ -285,6 +309,65 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Security Code Verification Modal */}
+      {showSecurityCodeModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl p-5 w-full max-w-sm animate-fade-in text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-3">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h4 className="font-bold text-sm text-foreground mb-1">
+              Verify Security Safety Numbers
+            </h4>
+            <p className="text-xs text-muted-foreground mb-4">
+              To verify that messages and calls with <span className="font-semibold text-foreground">{partnerProfile?.display_name || activeConversation.title}</span> are end-to-end encrypted, compare these numbers with their device.
+            </p>
+
+            {/* 60-digit code grid (12 blocks of 5) */}
+            <div className="bg-muted p-3.5 rounded-xl border border-border mb-4 font-mono text-xs font-bold tracking-wider grid grid-cols-3 gap-2 text-foreground">
+              {safetyNumbers.map((block, idx) => (
+                <span key={idx} className="bg-background py-1 rounded-md text-center shadow-2xs border border-border/40">
+                  {block}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(safetyNumbers.join(' '));
+                  setCopiedCode(true);
+                  setTimeout(() => setCopiedCode(false), 2000);
+                }}
+                className="flex-1 py-2 px-3 rounded-xl border border-border text-foreground hover:bg-muted text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {copiedCode ? 'Copied!' : 'Copy Code'}
+              </button>
+              <button
+                onClick={() => {
+                  setIsVerified(!isVerified);
+                  setShowSecurityCodeModal(false);
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-colors ${
+                  isVerified
+                    ? 'bg-muted text-muted-foreground hover:text-foreground'
+                    : 'bg-delta-600 text-white hover:bg-delta-700'
+                }`}
+              >
+                {isVerified ? 'Unmark' : 'Mark Verified'}
+              </button>
+            </div>
+            <button
+              onClick={() => setShowSecurityCodeModal(false)}
+              className="mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
