@@ -12,6 +12,7 @@ import {
   CallType,
   ReceiptStatus,
   Profile,
+  SyncedPhoneContact,
 } from '@/types';
 import {
   INITIAL_CONVERSATIONS,
@@ -23,6 +24,15 @@ import {
 } from '@/data/mockData';
 import { useAuth } from './AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import {
+  isWebContactsSupported,
+  pickNativeDeviceContacts,
+  parseVCard,
+  parseCSVContacts,
+  matchContactsWithProfiles,
+  DEMO_PHONE_ADDRESS_BOOK,
+  RawContactInput,
+} from '@/lib/contacts/contactSync';
 
 interface SendMessageOptions {
   replyToId?: string;
@@ -77,12 +87,20 @@ interface MessagingContextType {
   clearChat: (conversationId: string) => void;
   togglePinConversation: (conversationId: string) => void;
   toggleMuteConversation: (conversationId: string) => void;
+  // Contact sync
+  syncedContacts: SyncedPhoneContact[];
+  isContactsPickerSupported: boolean;
+  syncDeviceContacts: () => Promise<{ success: boolean; count: number; error?: string }>;
+  importContactsFromFile: (content: string, type: 'vcf' | 'csv') => Promise<{ count: number; matched: number }>;
+  addContactByPhone: (name: string, phoneNumber: string) => Promise<{ matchedUser?: Profile }>;
+  removeSyncedContact: (id: string) => void;
+  syncSampleAddressBook: () => void;
 }
 
 const MessagingContext = createContext<MessagingContextType | undefined>(undefined);
 
 export function MessagingProvider({ children }: { children: React.ReactNode }) {
-  const { currentUser, isConfigured } = useAuth();
+  const { currentUser, isConfigured, availableDemoUsers } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [activeConversationId, setActiveConversationId] = useState<string | null>('conv-priya');
   const [messagesMap, setMessagesMap] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
@@ -95,6 +113,10 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
 
+  // Phone Contact Sync State
+  const [syncedContacts, setSyncedContacts] = useState<SyncedPhoneContact[]>([]);
+  const [isContactsPickerSupported, setIsContactsPickerSupported] = useState(false);
+
   // Call state
   const [activeCall, setActiveCall] = useState<CallSession | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -103,6 +125,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   // Load from localStorage in browser if available
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      setIsContactsPickerSupported(isWebContactsSupported());
       const storedConvs = localStorage.getItem('delta_conversations');
       const storedMsgs = localStorage.getItem('delta_messages');
       const storedStatuses = localStorage.getItem('delta_statuses');
@@ -124,8 +147,34 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       if (storedStatuses) {
         try { setStatuses(JSON.parse(storedStatuses)); } catch (e) { console.error(e); }
       }
+
+      // Load or initialize synced phone contacts matched against registered users
+      const storedSynced = localStorage.getItem('delta_synced_contacts');
+      if (storedSynced) {
+        try {
+          const parsed = JSON.parse(storedSynced);
+          const rawList = parsed.map((c: any) => ({ name: c.name, phone: c.phone_number }));
+          const refreshed = matchContactsWithProfiles(rawList, availableDemoUsers);
+          setSyncedContacts(refreshed);
+        } catch (e) { console.error(e); }
+      } else {
+        // First-time visit: auto-match realistic address book contacts to discover Priya, Arjun, etc.
+        const initial = matchContactsWithProfiles(DEMO_PHONE_ADDRESS_BOOK, availableDemoUsers);
+        setSyncedContacts(initial);
+        localStorage.setItem('delta_synced_contacts', JSON.stringify(initial));
+      }
     }
-  }, []);
+  }, [availableDemoUsers]);
+
+  // Keep phone contact matches in sync whenever available registered users change
+  useEffect(() => {
+    setSyncedContacts((prev) => {
+      if (prev.length === 0) return prev;
+      const raw = prev.map((c) => ({ name: c.name, phone: c.phone_number }));
+      const refreshed = matchContactsWithProfiles(raw, availableDemoUsers);
+      return refreshed;
+    });
+  }, [availableDemoUsers]);
 
   // Sync to localStorage
   const persistState = useCallback((newConvs: Conversation[], newMsgs: Record<string, Message[]>, newStats?: DeltaStatus[]) => {
@@ -596,6 +645,76 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  // Contact Sync Implementation
+  const syncDeviceContacts = async (): Promise<{ success: boolean; count: number; error?: string }> => {
+    let raw: RawContactInput[] = [];
+    if (isWebContactsSupported()) {
+      try {
+        raw = await pickNativeDeviceContacts();
+      } catch (err: any) {
+        return { success: false, count: 0, error: err.message || 'Failed to access device contacts.' };
+      }
+    }
+
+    if (raw.length === 0) {
+      raw = DEMO_PHONE_ADDRESS_BOOK;
+    }
+
+    const currentRaw = syncedContacts.map((c) => ({ name: c.name, phone: c.phone_number }));
+    const merged = [...currentRaw, ...raw];
+    const matched = matchContactsWithProfiles(merged, availableDemoUsers);
+    setSyncedContacts(matched);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_synced_contacts', JSON.stringify(matched));
+    }
+    return { success: true, count: matched.length };
+  };
+
+  const importContactsFromFile = async (content: string, type: 'vcf' | 'csv'): Promise<{ count: number; matched: number }> => {
+    const raw = type === 'vcf' ? parseVCard(content) : parseCSVContacts(content);
+    if (raw.length === 0) {
+      return { count: 0, matched: 0 };
+    }
+    const currentRaw = syncedContacts.map((c) => ({ name: c.name, phone: c.phone_number }));
+    const merged = [...currentRaw, ...raw];
+    const matched = matchContactsWithProfiles(merged, availableDemoUsers);
+    setSyncedContacts(matched);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_synced_contacts', JSON.stringify(matched));
+    }
+    const deltaCount = matched.filter((c) => c.is_on_delta).length;
+    return { count: matched.length, matched: deltaCount };
+  };
+
+  const addContactByPhone = async (name: string, phoneNumber: string): Promise<{ matchedUser?: Profile }> => {
+    const raw: RawContactInput = { name: name.trim(), phone: phoneNumber.trim() };
+    const currentRaw = syncedContacts.map((c) => ({ name: c.name, phone: c.phone_number }));
+    const merged = [raw, ...currentRaw];
+    const matched = matchContactsWithProfiles(merged, availableDemoUsers);
+    setSyncedContacts(matched);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_synced_contacts', JSON.stringify(matched));
+    }
+    const found = matched.find((c) => c.phone_number === phoneNumber);
+    return { matchedUser: found?.delta_profile };
+  };
+
+  const removeSyncedContact = (id: string) => {
+    const updated = syncedContacts.filter((c) => c.id !== id);
+    setSyncedContacts(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_synced_contacts', JSON.stringify(updated));
+    }
+  };
+
+  const syncSampleAddressBook = () => {
+    const matched = matchContactsWithProfiles(DEMO_PHONE_ADDRESS_BOOK, availableDemoUsers);
+    setSyncedContacts(matched);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_synced_contacts', JSON.stringify(matched));
+    }
+  };
+
   return (
     <MessagingContext.Provider
       value={{
@@ -635,6 +754,14 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         clearChat,
         togglePinConversation,
         toggleMuteConversation,
+        // Contact sync
+        syncedContacts,
+        isContactsPickerSupported,
+        syncDeviceContacts,
+        importContactsFromFile,
+        addContactByPhone,
+        removeSyncedContact,
+        syncSampleAddressBook,
       }}
     >
       {children}

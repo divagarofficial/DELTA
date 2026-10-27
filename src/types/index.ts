@@ -33,6 +33,17 @@ export interface Contact {
   profile?: Profile;
 }
 
+export interface SyncedPhoneContact {
+  id: string;
+  name: string;
+  phone_number: string;
+  normalized_phone: string;
+  is_on_delta: boolean;
+  delta_user_id?: string;
+  delta_profile?: Profile;
+  synced_at: string;
+}
+
 export interface Conversation {
   id: string;
   type: ConversationType;

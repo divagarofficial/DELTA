@@ -14,8 +14,13 @@ import {
   Save,
   Radio,
   Lock,
+  Smartphone,
+  RefreshCw,
+  Upload,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useMessaging } from '@/context/MessagingContext';
 import { PrivacySetting } from '@/types';
 
 interface SettingsModalProps {
@@ -25,7 +30,17 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { currentUser, updateProfile, isConfigured, isDemoMode } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'privacy' | 'notifications' | 'database'>('profile');
+  const {
+    syncedContacts,
+    syncDeviceContacts,
+    importContactsFromFile,
+    syncSampleAddressBook,
+    isContactsPickerSupported,
+  } = useMessaging();
+  const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'privacy' | 'notifications' | 'database'>('profile');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Profile form state
   const [displayName, setDisplayName] = useState(currentUser?.display_name || '');
@@ -86,6 +101,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="flex border-b border-border bg-muted/30 px-3 overflow-x-auto text-xs font-semibold">
           {[
             { id: 'profile' as const, label: 'Profile', icon: User },
+            { id: 'contacts' as const, label: 'Contacts & Sync', icon: Smartphone },
             { id: 'privacy' as const, label: 'Privacy', icon: Shield },
             { id: 'notifications' as const, label: 'Notifications', icon: Bell },
             { id: 'database' as const, label: 'DevOps & Backend', icon: Database },
@@ -181,7 +197,117 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           )}
 
-          {/* 2. Privacy Tab */}
+          {/* 2. Contacts & Sync Tab */}
+          {activeTab === 'contacts' && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl border border-delta-200 dark:border-delta-900 bg-delta-50/50 dark:bg-delta-950/40">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-delta-600" />
+                    <h3 className="font-bold text-foreground">Phone Contacts Auto-Sync</h3>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-delta-100 text-delta-800 dark:bg-delta-900 dark:text-delta-200">
+                    {syncedContacts.filter((c) => c.is_on_delta).length} on Delta
+                  </span>
+                </div>
+                <p className="text-muted-foreground text-[11px] leading-relaxed">
+                  Delta securely matches 10-digit mobile numbers from your phone address book against registered users so you can instantly message friends without sharing unhashed address book data.
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={async () => {
+                      setIsSyncing(true);
+                      setSyncFeedback('');
+                      const res = await syncDeviceContacts();
+                      setIsSyncing(false);
+                      setSyncFeedback(`✓ Synced ${res.count} contacts.`);
+                      setTimeout(() => setSyncFeedback(''), 4000);
+                    }}
+                    disabled={isSyncing}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-delta-600 text-white font-bold hover:bg-delta-700 disabled:opacity-50 transition-colors shadow-xs"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <span>{isContactsPickerSupported ? 'Sync Device Contacts' : 'Sync Phone Contacts'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-card border border-border text-foreground font-semibold hover:bg-muted transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Import .vcf / .csv</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".vcf,.csv,text/vcard,text/csv"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const text = await file.text();
+                      const type = file.name.endsWith('.csv') ? 'csv' : 'vcf';
+                      const res = await importContactsFromFile(text, type);
+                      setSyncFeedback(`✓ Imported ${res.count} contacts (${res.matched} on Delta).`);
+                      setTimeout(() => setSyncFeedback(''), 4000);
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }}
+                    className="hidden"
+                  />
+
+                  <button
+                    onClick={() => {
+                      syncSampleAddressBook();
+                      setSyncFeedback('✓ Sample address book synchronized.');
+                      setTimeout(() => setSyncFeedback(''), 4000);
+                    }}
+                    className="flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-[11px]"
+                  >
+                    Sample Contacts
+                  </button>
+                </div>
+
+                {syncFeedback && (
+                  <p className="mt-2 text-xs font-semibold text-delta-600 animate-fade-in">
+                    {syncFeedback}
+                  </p>
+                )}
+              </div>
+
+              {/* Synced Contacts List */}
+              <div>
+                <p className="font-semibold text-foreground text-xs mb-2">
+                  Synced Address Book ({syncedContacts.length} Contacts)
+                </p>
+                <div className="max-h-60 overflow-y-auto divide-y divide-border border border-border rounded-xl bg-card">
+                  {syncedContacts.map((c) => (
+                    <div key={c.id} className="p-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-semibold text-foreground">{c.name}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono">{c.phone_number}</p>
+                      </div>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          c.is_on_delta
+                            ? 'bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {c.is_on_delta ? '● On Delta' : 'Not Registered'}
+                      </span>
+                    </div>
+                  ))}
+                  {syncedContacts.length === 0 && (
+                    <p className="p-4 text-center text-muted-foreground italic">
+                      No contacts synced yet. Click &apos;Sync Phone Contacts&apos; to import contacts.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Privacy Tab */}
           {activeTab === 'privacy' && (
             <div className="space-y-4">
               <div>

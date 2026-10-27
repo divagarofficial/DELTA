@@ -137,4 +137,46 @@ test.describe('Delta Web Messaging Platform - E2E Verification', () => {
     // Verify successful login into workspace
     await expect(page.locator('button[aria-label="Chats"]')).toBeVisible();
   });
+
+  test('syncs phone address book contacts, matches registered Delta users, and provides instant messaging or invite', async ({ page }) => {
+    await page.goto('/');
+
+    // Open New Chat modal
+    const newChatBtn = page.locator('button[aria-label="New Chat"]');
+    await newChatBtn.click();
+
+    // Verify New Chat modal opened with tabs
+    await expect(page.locator('button:has-text("Direct Message")')).toBeVisible();
+
+    // Switch to Phone Contacts tab
+    const phoneContactsTab = page.locator('button:has-text("Phone Contacts")');
+    await expect(phoneContactsTab).toBeVisible();
+    await phoneContactsTab.click();
+
+    // Verify phone contact sync UI controls
+    const syncBtn = page.locator('button:has-text("Sync Phone Contacts"), button:has-text("Sync Device Contacts")').first();
+    await expect(syncBtn).toBeVisible();
+    await syncBtn.click();
+
+    // Verify synced contact sections appear
+    await expect(page.locator('text=Contacts on Delta')).toBeVisible();
+    await expect(page.locator('text=Invite to Delta')).toBeVisible();
+
+    // Verify registered users are detected with "On Delta" badge
+    await expect(page.locator('div:has-text("Priya Sharma"):has-text("On Delta")').first()).toBeVisible();
+
+    // Verify unregistered users are placed under Invite section
+    await expect(page.locator('text=Dr. Neha Sen')).toBeVisible();
+    await expect(page.locator('button:has-text("Invite")').first()).toBeVisible();
+
+    // Click Message button on matched contact Arjun Patel
+    const arjunMessageBtn = page.locator('button[data-testid="message-contact-user-arjun"]');
+    await expect(arjunMessageBtn).toBeVisible();
+    await arjunMessageBtn.click();
+
+    // Modal should close and active chat should switch to Arjun Patel
+    await expect(page.locator('button:has-text("Direct Message")')).not.toBeVisible();
+    await expect(page.locator('h2:has-text("Arjun Patel")')).toBeVisible();
+  });
 });
+
