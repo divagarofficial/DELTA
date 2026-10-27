@@ -1,0 +1,17 @@
+{
+  "name": "Delta - Everything connects",
+  "short_name": "Delta",
+  "description": "Fast, private, and secure messaging platform for individuals, teams, and communities.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAF7",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "/delta-logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

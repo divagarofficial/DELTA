@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 238 82% 59%;
+    --primary-hover: 239 84% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 238 82% 96%;
+    --accent-foreground: 238 82% 40%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 90%;
+    --input: 214 20% 90%;
+    --ring: 238 82% 59%;
+
+    --radius: 0.75rem;
+
+    --bubble-incoming: 0 0% 100%;
+    --bubble-incoming-fg: 222 47% 11%;
+    --bubble-outgoing: 238 82% 59%;
+    --bubble-outgoing-fg: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 224 24% 10%;
+    --foreground: 210 40% 98%;
+
+    --card: 223 20% 14%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 223 20% 14%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 235 86% 65%;
+    --primary-hover: 235 86% 70%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 222 18% 18%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 222 18% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 238 50% 20%;
+    --accent-foreground: 238 80% 90%;
+
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 235 86% 65%;
+
+    --bubble-incoming: 223 20% 16%;
+    --bubble-incoming-fg: 210 40% 98%;
+    --bubble-outgoing: 238 82% 58%;
+    --bubble-outgoing-fg: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-delta-500/20 selection:text-delta-600;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Custom scrollbar for modern chat interface */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.45);
+}
+
+/* Clean glassmorphism utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .glass-panel {
+  background: rgba(22, 27, 38, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
