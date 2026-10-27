@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
-import { DeltaLogo } from '@/components/brand/DeltaLogo';
+import { DeltaLogoWithoutText } from '@/components/brand/DeltaLogo';
 import { useAuth } from '@/context/AuthContext';
 import { useMessaging } from '@/context/MessagingContext';
 import { getInitials } from '@/lib/utils';
@@ -81,7 +81,7 @@ export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
           aria-label="Delta Home"
           className="p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
         >
-          <DeltaLogo size={36} showText={false} />
+          <DeltaLogoWithoutText size={36} />
         </button>
 
         {/* Navigation Tabs */}

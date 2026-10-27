@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { MessagingWorkspace } from '@/components/layout/MessagingWorkspace';
-import { DeltaLogo } from '@/components/brand/DeltaLogo';
+import { DeltaLogoWithText, DeltaLogoWithoutText } from '@/components/brand/DeltaLogo';
 import {
   Shield,
   Zap,
@@ -27,7 +27,7 @@ export default function HomePage() {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background select-none">
         <div className="flex flex-col items-center gap-3">
-          <DeltaLogo size={52} showText={false} />
+          <DeltaLogoWithoutText size={52} />
           <p className="text-xs font-semibold text-muted-foreground animate-pulse">
             Connecting to Delta...
           </p>
@@ -47,7 +47,7 @@ export default function HomePage() {
       {/* Navigation Header */}
       <header className="border-b border-border/80 bg-card/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <DeltaLogo size={36} />
+          <DeltaLogoWithText height={36} />
 
           <div className="flex items-center gap-3">
             <Link
@@ -149,11 +149,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-border py-6 bg-card">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <DeltaLogo size={24} showText={false} />
-            <span className="font-semibold text-foreground">Delta Platform</span>
-            <span>• Everything connects.</span>
-          </div>
+          <DeltaLogoWithText height={26} />
           <p>© 2026 Delta. Engineered for speed, privacy, and reliability.</p>
         </div>
       </footer>

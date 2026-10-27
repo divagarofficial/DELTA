@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DeltaLogo } from '@/components/brand/DeltaLogo';
+import { DeltaLogoWithText } from '@/components/brand/DeltaLogo';
 import { useAuth } from '@/context/AuthContext';
 import {
   Lock,
@@ -83,11 +83,11 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col justify-center items-center p-4 selection:bg-delta-500/20 selection:text-delta-600">
-      <div className="w-full max-w-md flex flex-col items-center">
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center py-10 px-4 selection:bg-delta-500/20 selection:text-delta-600 overflow-y-auto">
+      <div className="w-full max-w-md flex flex-col items-center my-auto">
         {/* Logo */}
-        <Link href="/" className="mb-6 flex flex-col items-center">
-          <DeltaLogo size={44} />
+        <Link href="/" className="mb-6 flex flex-col items-center transition-transform hover:scale-105" aria-label="Delta Home">
+          <DeltaLogoWithText height={42} />
         </Link>
 
         {/* Card */}

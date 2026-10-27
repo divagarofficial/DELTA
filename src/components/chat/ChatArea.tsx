@@ -31,7 +31,7 @@ import { useMessaging } from '@/context/MessagingContext';
 import { useAuth } from '@/context/AuthContext';
 import { formatMessageTime, formatFileSize, getInitials, formatLastSeen } from '@/lib/utils';
 import { Message, Profile, MessageType } from '@/types';
-import { DeltaLogo } from '@/components/brand/DeltaLogo';
+import { DeltaLogoWithText } from '@/components/brand/DeltaLogo';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { DEMO_PROFILES } from '@/data/mockData';
 
@@ -100,14 +100,11 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
     return (
       <div className="flex-1 hidden md:flex flex-col items-center justify-center p-8 bg-surface-subtle dark:bg-surface-dark select-none text-center">
         <div className="max-w-md flex flex-col items-center">
-          <div className="w-20 h-20 rounded-3xl bg-card border border-border shadow-md flex items-center justify-center mb-6">
-            <DeltaLogo size={52} showText={false} />
+          <div className="mb-6 p-4 rounded-3xl bg-card border border-border shadow-md flex items-center justify-center">
+            <DeltaLogoWithText height={56} />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">
-            Delta for Web
-          </h2>
           <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-            Everything connects. Fast, secure, and modern communication for individuals, teams, and communities.
+            Fast, secure, and modern communication for individuals, teams, and communities.
           </p>
           <div className="mt-8 flex items-center gap-2 text-xs text-muted-foreground bg-card border border-border px-4 py-2 rounded-full shadow-xs">
             <Shield className="w-4 h-4 text-delta-600" />

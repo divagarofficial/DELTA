@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { DeltaLogo } from '@/components/brand/DeltaLogo';
+import { DeltaLogoWithText } from '@/components/brand/DeltaLogo';
 import { AlertCircle, RotateCcw } from 'lucide-react';
 
 export default function ErrorPage({
@@ -17,7 +17,7 @@ export default function ErrorPage({
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center select-none">
-      <DeltaLogo size={44} className="mb-4" />
+      <DeltaLogoWithText height={44} className="mb-4" />
       <div className="w-12 h-12 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mb-3">
         <AlertCircle className="w-6 h-6" />
       </div>
