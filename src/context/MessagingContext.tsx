@@ -108,7 +108,15 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       const storedStatuses = localStorage.getItem('delta_statuses');
 
       if (storedConvs) {
-        try { setConversations(JSON.parse(storedConvs)); } catch (e) { console.error(e); }
+        try {
+          const parsed: Conversation[] = JSON.parse(storedConvs);
+          const migrated = parsed.map((c) =>
+            c.avatar_url === '/delta-logo.svg' || c.avatar_url?.endsWith('.svg')
+              ? { ...c, avatar_url: '/delta_logo_without_text.png' }
+              : c
+          );
+          setConversations(migrated);
+        } catch (e) { console.error(e); }
       }
       if (storedMsgs) {
         try { setMessagesMap(JSON.parse(storedMsgs)); } catch (e) { console.error(e); }

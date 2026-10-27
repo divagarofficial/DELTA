@@ -81,7 +81,7 @@ export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
           aria-label="Delta Home"
           className="p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
         >
-          <DeltaLogoWithoutText size={36} />
+          <DeltaLogoWithoutText size={40} />
         </button>
 
         {/* Navigation Tabs */}

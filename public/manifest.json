@@ -8,9 +8,9 @@
   "theme_color": "#7C3AED",
   "icons": [
     {
-      "src": "/delta-logo.svg",
+      "src": "/delta_logo_without_text.png",
       "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

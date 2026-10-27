@@ -23,6 +23,15 @@ export default function HomePage() {
   const { currentUser, isLoading } = useAuth();
   const [showLandingExplicit, setShowLandingExplicit] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isLanding = new URLSearchParams(window.location.search).get('landing') === 'true';
+      if (isLanding) {
+        setShowLandingExplicit(true);
+      }
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background select-none">
@@ -47,7 +56,7 @@ export default function HomePage() {
       {/* Navigation Header */}
       <header className="border-b border-border/80 bg-card/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <DeltaLogoWithText height={36} />
+          <DeltaLogoWithText height={40} />
 
           <div className="flex items-center gap-3">
             <Link

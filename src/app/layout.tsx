@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: 'Fast, secure, and modern messaging platform for individuals, teams, and communities.',
   manifest: '/manifest.json',
   icons: {
-    icon: '/delta-logo.svg',
-    shortcut: '/delta-logo.svg',
-    apple: '/delta-logo.svg',
+    icon: '/delta_logo_without_text.png',
+    shortcut: '/delta_logo_without_text.png',
+    apple: '/delta_logo_without_text.png',
   },
 };
 

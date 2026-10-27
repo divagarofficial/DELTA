@@ -1,7 +1,7 @@
 # Delta — Everything connects.
 
 <div align="center">
-  <img src="public/delta-logo.svg" width="84" height="84" alt="Delta Brand Mark" />
+  <img src="public/delta_logo_with_text.png" width="240" height="80" alt="Delta Brand Mark" />
   <p><strong>A high-performance modern messaging platform built for speed, privacy, and seamless cross-platform communication.</strong></p>
   <p>Competes with WhatsApp Web and Telegram Web with an original design system, PostgreSQL Row Level Security, WebRTC calling, and PWA capabilities.</p>
 </div>
