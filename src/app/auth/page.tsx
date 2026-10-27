@@ -13,6 +13,8 @@ import {
   Sparkles,
   AlertCircle,
   Smartphone,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -24,6 +26,7 @@ export default function AuthPage() {
   // Sign in identifier: mobile number or username
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Sign up fields: mobile number is mandatory and key identity
   const [countryCode, setCountryCode] = useState('+91');
@@ -220,19 +223,34 @@ export default function AuthPage() {
             )}
 
             <div>
-              <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-muted-foreground block">
+                  Password
+                </label>
+                {mode === 'signup' && (
+                  <span className="text-[10px] text-muted-foreground">Min. 6 characters</span>
+                )}
+              </div>
               <div className="relative flex items-center">
                 <Lock className="w-4 h-4 text-muted-foreground absolute left-3" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
+                  minLength={mode === 'signup' ? 6 : undefined}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-muted text-foreground text-xs pl-9 pr-3 py-2.5 rounded-xl border border-transparent focus:border-border focus:bg-background focus:outline-none"
+                  placeholder={mode === 'signup' ? 'Create a secure password (6+ chars)' : '••••••••'}
+                  className="w-full bg-muted text-foreground text-xs pl-9 pr-10 py-2.5 rounded-xl border border-transparent focus:border-border focus:bg-background focus:outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  tabIndex={-1}
+                  className="absolute right-3 p-0.5 text-muted-foreground hover:text-foreground focus:outline-none"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

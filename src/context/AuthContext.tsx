@@ -1,12 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Profile } from '@/types';
 import { DEMO_PROFILES } from '@/data/mockData';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { normalizePhoneNumber, isValidPhoneNumber } from '@/lib/utils';
 
-interface SignUpParams {
+export interface SignUpParams {
   phoneNumber: string;
   username: string;
   displayName: string;
@@ -14,7 +14,7 @@ interface SignUpParams {
   email?: string;
 }
 
-interface AuthContextType {
+export interface AuthContextType {
   currentUser: Profile | null;
   isLoading: boolean;
   isConfigured: boolean;
@@ -29,40 +29,94 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to retrieve custom registered profiles from localStorage
+function getStoredProfiles(): Profile[] {
+  if (typeof window === 'undefined') return [];
+  const profiles: Profile[] = [];
+  try {
+    const rawIds = localStorage.getItem('delta_registered_users');
+    const ids: string[] = rawIds ? JSON.parse(rawIds) : [];
+    for (const id of ids) {
+      const raw = localStorage.getItem(`delta_custom_profile_${id}`);
+      if (raw) {
+        profiles.push(JSON.parse(raw));
+      }
+    }
+    // Also discover any legacy delta_custom_profile_* keys
+    const customKeys = Object.keys(localStorage).filter((k) => k.startsWith('delta_custom_profile_'));
+    for (const k of customKeys) {
+      const id = k.replace('delta_custom_profile_', '');
+      if (!ids.includes(id)) {
+        try {
+          const item = JSON.parse(localStorage.getItem(k) || '');
+          if (item && item.id && !profiles.some((p) => p.id === item.id)) {
+            profiles.push(item);
+          }
+        } catch (e) {}
+      }
+    }
+  } catch (e) {
+    console.error('Error reading stored custom profiles:', e);
+  }
+  return profiles;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isConfigured = isSupabaseConfigured();
   const [isDemoMode, setIsDemoMode] = useState(!isConfigured);
+  const [customProfiles, setCustomProfiles] = useState<Profile[]>([]);
+
+  // Synchronize stored custom profiles
+  const refreshCustomProfiles = useCallback(() => {
+    const stored = getStoredProfiles();
+    setCustomProfiles(stored);
+  }, []);
 
   useEffect(() => {
     async function initAuth() {
+      refreshCustomProfiles();
+
       if (isConfigured) {
         const supabase = createClient();
         if (supabase) {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
 
-            if (profile) {
-              setCurrentUser(profile);
-              setIsDemoMode(false);
-              setIsLoading(false);
-              return;
+              if (profile) {
+                setCurrentUser(profile);
+                setIsDemoMode(false);
+                setIsLoading(false);
+                return;
+              }
             }
+          } catch (e) {
+            console.error('Supabase session initialization error:', e);
           }
         }
       }
 
-      // Check localStorage for persisted demo user
+      // Check localStorage for persisted demo/local user session
       const storedUserId = typeof window !== 'undefined' ? localStorage.getItem('delta_demo_user_id') : null;
+
+      // If user explicitly signed out, respect their sign out
+      if (storedUserId === 'signed_out') {
+        setCurrentUser(null);
+        setIsDemoMode(true);
+        setIsLoading(false);
+        return;
+      }
+
       let found = DEMO_PROFILES.find((p) => p.id === storedUserId);
 
-      // Check custom registered demo profiles from localStorage
+      // Check custom registered profiles from localStorage
       if (!found && storedUserId && typeof window !== 'undefined') {
         const customStored = localStorage.getItem(`delta_custom_profile_${storedUserId}`);
         if (customStored) {
@@ -74,13 +128,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setCurrentUser(found || DEMO_PROFILES[0]);
+      if (found) {
+        setCurrentUser(found);
+      } else if (storedUserId === null) {
+        // First-time visit: initialize with Aarav Mehta for instant demonstration
+        setCurrentUser(DEMO_PROFILES[0]);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('delta_demo_user_id', DEMO_PROFILES[0].id);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+
       setIsDemoMode(true);
       setIsLoading(false);
     }
 
     initAuth();
-  }, [isConfigured]);
+  }, [isConfigured, refreshCustomProfiles]);
+
+  // Combined list of demo profiles and newly registered accounts
+  const availableDemoUsers = [
+    ...DEMO_PROFILES,
+    ...customProfiles.filter((cp) => !DEMO_PROFILES.some((dp) => dp.id === cp.id)),
+  ];
 
   // Sign In using Mobile Number OR Username
   const signIn = async (identifier: string, password?: string): Promise<{ error?: string }> => {
@@ -94,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const cleanedDigits = trimmed.replace(/\D/g, '');
     const isPhoneQuery = cleanedDigits.length >= 10;
-    const cleanUsername = trimmed.toLowerCase().replace('@', '');
+    const cleanUsername = trimmed.toLowerCase().replace('@', '').trim();
 
     if (isConfigured) {
       const supabase = createClient();
@@ -114,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return { error: 'No Delta account found with this mobile number or username.' };
           }
 
-          // In production with email-backed auth:
+          // Production email-backed auth mapping
           const { data, error } = await supabase.auth.signInWithPassword({
             email: `${matchedProfile.username}@delta.app`,
             password,
@@ -142,28 +213,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Demo Mode: match by mobile number digits or username
-    // Also include any custom registered demo profiles stored locally
-    let allProfiles = [...DEMO_PROFILES];
-    if (typeof window !== 'undefined') {
-      const customKeys = Object.keys(localStorage).filter((k) => k.startsWith('delta_custom_profile_'));
-      for (const k of customKeys) {
-        try {
-          const item = JSON.parse(localStorage.getItem(k) || '');
-          if (item && item.id) allProfiles.push(item);
-        } catch (e) {}
-      }
-    }
+    // Local / Demo Mode verification
+    const allProfiles = [
+      ...DEMO_PROFILES,
+      ...getStoredProfiles(),
+    ];
 
     const match = allProfiles.find((p) => {
-      // Check phone match
+      // 1. Phone match
       if (isPhoneQuery && p.phone_number) {
         const profileDigits = p.phone_number.replace(/\D/g, '');
         if (profileDigits.endsWith(cleanedDigits.slice(-10))) {
           return true;
         }
       }
-      // Check username match
+      // 2. Username match
       if (p.username.toLowerCase() === cleanUsername) {
         return true;
       }
@@ -177,6 +241,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? `No Delta account found registered with mobile number "${trimmed}".`
           : `No Delta account found with username "@${cleanUsername}".`,
       };
+    }
+
+    // Password validation for custom accounts
+    if (typeof window !== 'undefined') {
+      const storedPwd = localStorage.getItem(`delta_user_pwd_${match.id}`);
+      if (storedPwd) {
+        if (!password || password !== storedPwd) {
+          setIsLoading(false);
+          return { error: 'Incorrect password. Please verify your credentials and try again.' };
+        }
+      }
     }
 
     setCurrentUser(match);
@@ -205,9 +280,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // 2. Mandatory Username Validation
-    if (!username || !username.trim()) {
+    const cleanUsername = username.toLowerCase().replace(/[^a-z0-9_]/g, '').trim();
+    if (!cleanUsername) {
       setIsLoading(false);
       return { error: 'Username is mandatory.' };
+    }
+
+    if (cleanUsername.length < 3 || cleanUsername.length > 25) {
+      setIsLoading(false);
+      return { error: 'Username must be between 3 and 25 characters.' };
     }
 
     // 3. Mandatory Display Name Validation
@@ -216,24 +297,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: 'Display name is mandatory.' };
     }
 
+    // 4. Mandatory Password Validation
+    if (!password || password.length < 6) {
+      setIsLoading(false);
+      return { error: 'Password is mandatory and must be at least 6 characters.' };
+    }
+
     const normalizedPhone = normalizePhoneNumber(phoneNumber);
     const cleanedDigits = normalizedPhone.replace(/\D/g, '').slice(-10);
-    const cleanUsername = username.toLowerCase().replace(/[^a-z0-9_]/g, '');
 
-    // Check duplicate phone number in local profiles
-    const phoneExists = DEMO_PROFILES.some((p) =>
+    // Duplicate check across all demo and custom registered profiles
+    const allProfiles = [
+      ...DEMO_PROFILES,
+      ...getStoredProfiles(),
+    ];
+
+    const phoneExists = allProfiles.some((p) =>
       p.phone_number?.replace(/\D/g, '').endsWith(cleanedDigits)
     );
     if (phoneExists) {
       setIsLoading(false);
-      return { error: 'A Delta account with this mobile number already exists. Please sign in.' };
+      return { error: `A Delta account with mobile number "${normalizedPhone}" already exists. Please sign in.` };
     }
 
-    // Check duplicate username in local profiles
-    const usernameExists = DEMO_PROFILES.some((p) => p.username.toLowerCase() === cleanUsername);
+    const usernameExists = allProfiles.some((p) => p.username.toLowerCase() === cleanUsername);
     if (usernameExists) {
       setIsLoading(false);
-      return { error: `The username @${cleanUsername} is already taken. Please choose another.` };
+      return { error: `The username "@${cleanUsername}" is already taken. Please choose another.` };
     }
 
     if (isConfigured) {
@@ -261,7 +351,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             username: cleanUsername,
             display_name: displayName.trim(),
             phone_number: normalizedPhone,
-            avatar_url: null,
+            avatar_url: '/delta_logo_without_text.png',
             presence_status: 'online',
           };
           setCurrentUser(newProfile);
@@ -272,9 +362,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Demo Mode Sign up: create custom local profile with mandatory mobile number
+    // Create persistent new local profile with mandatory mobile number
+    const newUserId = `user-reg-${Date.now()}`;
     const newDemoProfile: Profile = {
-      id: `user-${Date.now()}`,
+      id: newUserId,
       username: cleanUsername,
       display_name: displayName.trim(),
       phone_number: normalizedPhone,
@@ -288,11 +379,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       privacy_profile_photo: 'everyone',
     };
 
-    setCurrentUser(newDemoProfile);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('delta_demo_user_id', newDemoProfile.id);
-      localStorage.setItem(`delta_custom_profile_${newDemoProfile.id}`, JSON.stringify(newDemoProfile));
+      // 1. Store profile object
+      localStorage.setItem(`delta_custom_profile_${newUserId}`, JSON.stringify(newDemoProfile));
+      // 2. Store password for authentication
+      localStorage.setItem(`delta_user_pwd_${newUserId}`, password);
+      // 3. Register ID into registry list
+      const existingIds: string[] = JSON.parse(localStorage.getItem('delta_registered_users') || '[]');
+      if (!existingIds.includes(newUserId)) {
+        existingIds.push(newUserId);
+        localStorage.setItem('delta_registered_users', JSON.stringify(existingIds));
+      }
+      // 4. Set current session ID
+      localStorage.setItem('delta_demo_user_id', newUserId);
     }
+
+    refreshCustomProfiles();
+    setCurrentUser(newDemoProfile);
     setIsDemoMode(true);
     setIsLoading(false);
     return {};
@@ -307,7 +410,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('delta_demo_user_id');
+      localStorage.setItem('delta_demo_user_id', 'signed_out');
     }
     setCurrentUser(null);
     setIsLoading(false);
@@ -325,11 +428,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else if (typeof window !== 'undefined') {
       localStorage.setItem(`delta_custom_profile_${currentUser.id}`, JSON.stringify(updated));
+      refreshCustomProfiles();
     }
   };
 
   const switchDemoUser = (userId: string) => {
-    const target = DEMO_PROFILES.find((p) => p.id === userId);
+    const all = [...DEMO_PROFILES, ...customProfiles];
+    const target = all.find((p) => p.id === userId);
     if (target) {
       setCurrentUser(target);
       if (typeof window !== 'undefined') {
@@ -350,7 +455,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         updateProfile,
         switchDemoUser,
-        availableDemoUsers: DEMO_PROFILES,
+        availableDemoUsers,
       }}
     >
       {children}

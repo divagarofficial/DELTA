@@ -97,4 +97,44 @@ test.describe('Delta Web Messaging Platform - E2E Verification', () => {
     // Redirected to workspace
     await expect(page.locator('button[aria-label="Chats"]')).toBeVisible();
   });
+
+  test('completes full user registration, sign out, and re-login workflow', async ({ page }) => {
+    await page.goto('/auth');
+
+    // Switch to Registration mode
+    await page.locator('button:has-text("Register with Mobile Number")').click();
+
+    // Fill in registration fields
+    await page.locator('input[type="tel"]').fill('9876543299');
+    await page.locator('input[placeholder="e.g. Priya Sharma"]').fill('Vikram Malhotra');
+    await page.locator('input[placeholder="priya_sharma"]').fill('vikram_m');
+    await page.locator('input[type="password"]').fill('VikramSecret123!');
+
+    // Submit registration
+    await page.locator('button[type="submit"]:has-text("Register with Mobile Number")').click();
+
+    // Verify successful registration and workspace entry
+    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible();
+
+    // Open profile menu on navigation rail and Sign Out
+    await page.locator('button[aria-label="User Profile and Persona Switcher"]').click();
+    await page.locator('button:has-text("Sign Out")').click();
+
+    // Verify redirected back to Auth screen
+    await expect(page.getByRole('heading', { name: 'Sign in to Delta' })).toBeVisible();
+
+    // Attempt sign in with wrong password
+    const loginInput = page.locator('input[placeholder*="+91 98765 43210 or @username"]');
+    await loginInput.fill('9876543299');
+    await page.locator('input[type="password"]').fill('WrongPassword!');
+    await page.locator('button:has-text("Sign In to Delta")').click();
+    await expect(page.locator('text=Incorrect password')).toBeVisible();
+
+    // Now sign in with correct registered password
+    await page.locator('input[type="password"]').fill('VikramSecret123!');
+    await page.locator('button:has-text("Sign In to Delta")').click();
+
+    // Verify successful login into workspace
+    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible();
+  });
 });

@@ -18,6 +18,7 @@ import { DeltaLogoWithoutText } from '@/components/brand/DeltaLogo';
 import { useAuth } from '@/context/AuthContext';
 import { useMessaging } from '@/context/MessagingContext';
 import { getInitials } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 interface NavigationRailProps {
@@ -25,6 +26,7 @@ interface NavigationRailProps {
 }
 
 export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
+  const router = useRouter();
   const { currentUser, signOut, switchDemoUser, availableDemoUsers, isDemoMode, isConfigured } = useAuth();
   const { activeTab, setActiveTab, conversations, statuses } = useMessaging();
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -211,9 +213,10 @@ export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
 
               {/* Sign out */}
               <button
-                onClick={() => {
-                  signOut();
+                onClick={async () => {
+                  await signOut();
                   setShowPersonaMenu(false);
+                  router.push('/auth');
                 }}
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-xs text-destructive hover:bg-destructive/10 transition-colors pt-2 border-t border-border font-medium"
               >
