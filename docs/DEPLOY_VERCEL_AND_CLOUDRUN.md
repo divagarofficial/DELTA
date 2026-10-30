@@ -60,11 +60,19 @@ Open your terminal in `C:\DELTA` and execute:
    - Autoscaling: `0 to 10 instances`
    - Public HTTPS endpoint: `https://delta-backend-xxxxxx.a.run.app`
 
-### D. Set Backend Environment Variables on Google Cloud Run
+### D. Live Google Cloud Run Deployment
+The service is active and deployed:
+- **Service Name**: `delta-backend`
+- **Live URL**: `https://delta-backend-44277514752.asia-south1.run.app`
+- **Region**: `asia-south1` (Mumbai)
+- **Scale-to-Zero Policy**: `--min-instances 0` (**100% Free / ₹0 idle cost**)
+
+### E. Set Backend Environment Variables on Google Cloud Run (Optional)
 In the Google Cloud Console (or via `gcloud run services update`):
 ```bash
 gcloud run services update delta-backend \
   --region asia-south1 \
+  --project qlex-production \
   --set-env-vars NEXT_PUBLIC_ENABLE_DEMO_MODE=false \
   --set-env-vars NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co \
   --set-env-vars NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci... \
@@ -72,7 +80,8 @@ gcloud run services update delta-backend \
   --set-env-vars GEMINI_API_KEY=your_gemini_api_key
 ```
 
-Save your live Cloud Run URL (e.g. `https://delta-backend-910708332824.asia-south1.run.app`).
+Your live Cloud Run URL:
+👉 `https://delta-backend-44277514752.asia-south1.run.app`
 
 ---
 
