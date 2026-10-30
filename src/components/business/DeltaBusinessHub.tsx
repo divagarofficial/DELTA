@@ -1,14 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Briefcase,
-  Zap,
-  TrendingDown,
-  ShieldCheck,
-  Key,
-  Webhook,
-  FileCode2,
   Send,
   Plus,
   Trash2,
@@ -19,26 +13,24 @@ import {
   RefreshCw,
   Layers,
   ArrowRight,
-  Smartphone,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
-  Eye,
-  Globe,
-  DollarSign,
-  Receipt,
-  MessageSquare,
+  ShieldCheck,
+  Key,
+  Webhook,
+  FileCode2,
   Bot,
+  MessageSquare,
+  Zap,
+  CheckCircle2,
+  ChevronDown,
+  Terminal,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { businessStore } from '@/lib/business/businessStore';
-import { calculateMessageSavings, WHATSAPP_API_RATES } from '@/lib/business/costLedger';
+import { calculateMessageSavings } from '@/lib/business/costLedger';
 import { renderTemplate } from '@/lib/business/templateEngine';
 import { simulateBusinessAiCustomerSupport } from '@/lib/ai/deltaAiEngine';
 import { useMessaging } from '@/context/MessagingContext';
 import {
-  BusinessTemplate,
-  BusinessApiKey,
   BusinessCategory,
   WhatsAppCompatibleSendMessageRequest,
 } from '@/types/business';
@@ -47,7 +39,7 @@ export function DeltaBusinessHub() {
   const { conversations, sendBusinessApiMessage, setActiveConversationId, setActiveTab } = useMessaging();
 
   // Active view inside Delta Business
-  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'playground' | 'templates' | 'keys' | 'docs' | 'ai_agents'>('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'send' | 'templates' | 'api' | 'ai'>('overview');
 
   // Business state from store
   const [profile, setProfile] = useState(businessStore.getProfile());
@@ -60,52 +52,57 @@ export function DeltaBusinessHub() {
   // Copied state
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
-  // AI Agent Studio state
-  const [botName, setBotName] = useState('Delta Concierge');
-  const [botPersona, setBotPersona] = useState<'friendly' | 'professional' | 'tanglish'>('friendly');
-  const [botAutoPilot, setBotAutoPilot] = useState(true);
-  const [botWelcomeMsg, setBotWelcomeMsg] = useState('Vanakkam! Welcome to Delta Store. How can I assist you with your orders, returns, or support today?');
-  const [knowledgeFaqs, setKnowledgeFaqs] = useState([
-    { id: 'faq-1', question: 'What is your delivery timeframe?', answer: 'Orders placed before 2 PM are delivered the same day in Chennai. Standard delivery across South India takes 24-48 hours.' },
-    { id: 'faq-2', question: 'How do returns and refunds work?', answer: 'We offer a 7-day no-questions-asked return policy. Refunds are credited to original payment source within 24 hours.' },
-    { id: 'faq-3', question: 'Where is your physical store located?', answer: 'Our flagship store is located at T. Nagar, Chennai, open 10 AM to 9 PM daily.' },
-  ]);
-  const [newFaqQuestion, setNewFaqQuestion] = useState('');
-  const [newFaqAnswer, setNewFaqAnswer] = useState('');
-  const [sandboxMessages, setSandboxMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
-    { sender: 'bot', text: 'Hello! 👋 I am your automated customer support assistant. Ask me anything about orders, delivery, or returns to test me in real-time ($0 Meta Cloud API fee).', time: 'Just now' }
-  ]);
-  const [sandboxInput, setSandboxInput] = useState('What is your delivery timeframe?');
-  const [isSandboxThinking, setIsSandboxThinking] = useState(false);
-
-  // Playground state
+  // Send / Playground state
   const [targetContact, setTargetContact] = useState<string>('+919876543210');
-  const [selectedMessageType, setSelectedMessageType] = useState<'template' | 'text' | 'interactive' | 'media'>('template');
+  const [selectedMessageType, setSelectedMessageType] = useState<'template' | 'text' | 'interactive'>('template');
   const [selectedTemplateName, setSelectedTemplateName] = useState<string>('order_dispatched');
   const [templateParam1, setTemplateParam1] = useState<string>('Priya');
   const [templateParam2, setTemplateParam2] = useState<string>('DLT-98421');
   const [templateParam3, setTemplateParam3] = useState<string>('Today by 6:00 PM');
-  const [customTextMessage, setCustomTextMessage] = useState<string>('Hello from Delta Business! This message incurred ₹0.00 Meta API fees.');
+  const [customTextMessage, setCustomTextMessage] = useState<string>('Hello! Your order has been confirmed with Delta Business.');
   const [interactiveButton1, setInteractiveButton1] = useState<string>('Confirm Order');
-  const [interactiveButton2, setInteractiveButton2] = useState<string>('Speak with Agent');
+  const [interactiveButton2, setInteractiveButton2] = useState<string>('Support');
   const [isDispatching, setIsDispatching] = useState<boolean>(false);
   const [lastApiResponse, setLastApiResponse] = useState<any>(null);
+  const [showRawJson, setShowRawJson] = useState<boolean>(false);
 
-  // Template Studio state
+  // Template creation state
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [newTemplateCategory, setNewTemplateCategory] = useState<BusinessCategory>('UTILITY');
   const [newTemplateHeader, setNewTemplateHeader] = useState('');
-  const [newTemplateBody, setNewTemplateBody] = useState('Hi {{1}}, thank you for choosing Delta Business. Your reference is {{2}}.');
-  const [newTemplateFooter, setNewTemplateFooter] = useState('Delta Free Messaging Platform');
-  const [newTemplateButtonText, setNewTemplateButtonText] = useState('Track Order');
-  const [newTemplateButtonUrl, setNewTemplateButtonUrl] = useState('https://track.delta.io/{{2}}');
+  const [newTemplateBody, setNewTemplateBody] = useState('Hi {{1}}, thank you for choosing our service. Reference: {{2}}.');
+  const [newTemplateFooter, setNewTemplateFooter] = useState('');
+  const [newTemplateButtonText, setNewTemplateButtonText] = useState('');
+  const [newTemplateButtonUrl, setNewTemplateButtonUrl] = useState('');
 
-  // New API key state
+  // API Key creation state
   const [newKeyName, setNewKeyName] = useState('');
   const [isCreatingKey, setIsCreatingKey] = useState(false);
 
-  // Webhook test state
+  // Webhook test ping state
   const [isPingingWebhook, setIsPingingWebhook] = useState(false);
+
+  // Code snippet language tab
+  const [codeTab, setCodeTab] = useState<'curl' | 'node'>('curl');
+
+  // AI Agent Studio state
+  const [botName, setBotName] = useState('Delta Concierge');
+  const [botPersona, setBotPersona] = useState<'friendly' | 'professional' | 'tanglish'>('friendly');
+  const [botAutoPilot, setBotAutoPilot] = useState(true);
+  const [botWelcomeMsg, setBotWelcomeMsg] = useState('Hello! Welcome to Delta Store. How can I assist you today?');
+  const [knowledgeFaqs, setKnowledgeFaqs] = useState([
+    { id: 'faq-1', question: 'What is your delivery timeframe?', answer: 'Orders placed before 2 PM are delivered the same day. Standard delivery takes 24-48 hours.' },
+    { id: 'faq-2', question: 'How do returns work?', answer: 'We offer a 7-day hassle-free return policy. Refunds are credited within 24 hours.' },
+    { id: 'faq-3', question: 'Where is your store located?', answer: 'Our flagship store is open daily from 10 AM to 9 PM.' },
+  ]);
+  const [newFaqQuestion, setNewFaqQuestion] = useState('');
+  const [newFaqAnswer, setNewFaqAnswer] = useState('');
+  const [sandboxMessages, setSandboxMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: string }>>([
+    { sender: 'bot', text: 'Hello! 👋 I am your automated customer support assistant. How can I help you today?', time: 'Just now' }
+  ]);
+  const [sandboxInput, setSandboxInput] = useState('What is your delivery timeframe?');
+  const [isSandboxThinking, setIsSandboxThinking] = useState(false);
 
   const refreshState = () => {
     setProfile(businessStore.getProfile());
@@ -123,55 +120,12 @@ export function DeltaBusinessHub() {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  // AI Agent Sandbox Handler
-  const handleTestSandbox = async () => {
-    if (!sandboxInput.trim() || isSandboxThinking) return;
-    const userText = sandboxInput.trim();
-    setSandboxInput('');
-    setSandboxMessages((prev) => [...prev, { sender: 'user', text: userText, time: 'Just now' }]);
-    setIsSandboxThinking(true);
-    try {
-      const res = await simulateBusinessAiCustomerSupport(userText, profile.business_name, knowledgeFaqs);
-      setSandboxMessages((prev) => [...prev, { sender: 'bot', text: res.reply, time: 'Just now' }]);
-    } catch (e) {
-      console.error(e);
-      setSandboxMessages((prev) => [
-        ...prev,
-        { sender: 'bot', text: 'Thank you for reaching out! Our team has noted your query.', time: 'Just now' },
-      ]);
-    } finally {
-      setIsSandboxThinking(false);
-    }
-  };
-
-  const handleAddFaq = () => {
-    if (!newFaqQuestion.trim() || !newFaqAnswer.trim()) {
-      toast.error('Please enter both question and answer for the FAQ');
-      return;
-    }
-    const newFaq = {
-      id: `faq-${Date.now()}`,
-      question: newFaqQuestion.trim(),
-      answer: newFaqAnswer.trim(),
-    };
-    setKnowledgeFaqs((prev) => [...prev, newFaq]);
-    setNewFaqQuestion('');
-    setNewFaqAnswer('');
-    toast.success('Added new FAQ to Knowledge Base');
-  };
-
-  const handleDeleteFaq = (id: string) => {
-    setKnowledgeFaqs((prev) => prev.filter((f) => f.id !== id));
-    toast.success('Removed FAQ from Knowledge Base');
-  };
-
-  // Dispatch API Message in Playground
-  const handleDispatchPlaygroundMessage = async () => {
+  // Send Message Handler
+  const handleDispatchMessage = async () => {
     setIsDispatching(true);
     setLastApiResponse(null);
 
     try {
-      let payload: WhatsAppCompatibleSendMessageRequest;
       let displayContent = '';
       let interactiveMeta: any = null;
 
@@ -208,20 +162,8 @@ export function DeltaBusinessHub() {
             buttons: rendered.buttons,
           },
         };
-
-        payload = {
-          messaging_product: 'delta',
-          recipient_type: 'individual',
-          to: targetContact,
-          type: 'template',
-          template: {
-            name: tmpl.name,
-            language: { code: 'en_US' },
-            components,
-          },
-        };
       } else if (selectedMessageType === 'interactive') {
-        displayContent = 'How would you like to proceed with your booking?';
+        displayContent = 'How would you like to proceed?';
         interactiveMeta = {
           interactive: {
             type: 'button',
@@ -231,48 +173,24 @@ export function DeltaBusinessHub() {
             ],
           },
         };
-
-        payload = {
-          messaging_product: 'delta',
-          recipient_type: 'individual',
-          to: targetContact,
-          type: 'interactive',
-          interactive: {
-            type: 'button',
-            body: { text: displayContent },
-            action: {
-              buttons: [
-                { type: 'reply', reply: { id: 'btn_1', title: interactiveButton1 } },
-                { type: 'reply', reply: { id: 'btn_2', title: interactiveButton2 } },
-              ],
-            },
-          },
-        };
       } else {
         displayContent = customTextMessage;
-        payload = {
-          messaging_product: 'delta',
-          recipient_type: 'individual',
-          to: targetContact,
-          type: 'text',
-          text: { body: customTextMessage },
-        };
       }
 
-      // Record zero-cost ledger entry
+      // Record ledger entry
       const category: BusinessCategory =
         selectedMessageType === 'template'
           ? businessStore.getTemplateByName(selectedTemplateName)?.category || 'UTILITY'
           : 'SERVICE';
 
-      const entry = businessStore.recordLedgerEntry({
+      businessStore.recordLedgerEntry({
         recipient: targetContact,
         category,
         message_type: `${selectedMessageType}${selectedTemplateName ? `:${selectedTemplateName}` : ''}`,
         currency: 'INR',
       });
 
-      // Find an active conversation matching the contact phone or title or fallback
+      // Deliver message into matching conversation
       const cleanTarget = targetContact.replace(/[^0-9]/g, '');
       const targetConv =
         conversations.find((c) =>
@@ -291,19 +209,15 @@ export function DeltaBusinessHub() {
       const savings = calculateMessageSavings(category, 'INR');
       const responseData = {
         messaging_product: 'delta_business',
-        contacts: [{ input: targetContact, delta_id: `usr_${targetContact.replace(/[^0-9]/g, '')}` }],
+        contacts: [{ input: targetContact, delta_id: `usr_${cleanTarget}` }],
         messages: [
           {
             id: `deltamid.HBgM${Date.now()}9a8b7c`,
             message_status: 'delivered',
             pricing: {
               billable: false,
-              pricing_model: 'delta_zero_charge',
-              category: category.toLowerCase(),
               rate: '0.00',
               currency: 'INR',
-              saved_vs_whatsapp: savings.formattedSaved,
-              meta_rate_avoided: `₹${savings.whatsappRate.toFixed(4)}`,
             },
           },
         ],
@@ -311,19 +225,19 @@ export function DeltaBusinessHub() {
 
       setLastApiResponse(responseData);
       refreshState();
-      toast.success(`Message dispatched at ₹0.00 fee! Saved ${savings.formattedSaved} vs Meta API.`);
+      toast.success(`Message delivered successfully to ${targetContact}!`);
     } catch (err: any) {
-      toast.error(err.message || 'Error executing API dispatch');
+      toast.error(err.message || 'Error delivering message');
     } finally {
       setIsDispatching(false);
     }
   };
 
-  // Handle template creation
+  // Create Template Handler
   const handleCreateTemplate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTemplateName.trim() || !newTemplateBody.trim()) {
-      toast.error('Please provide a template name and body text.');
+      toast.error('Please enter a template name and message body.');
       return;
     }
 
@@ -340,31 +254,35 @@ export function DeltaBusinessHub() {
             {
               type: 'URL',
               text: newTemplateButtonText,
-              url: newTemplateButtonUrl,
+              url: newTemplateButtonUrl || 'https://example.com',
             },
           ]
         : [],
     });
 
-    toast.success(`Template "${created.name}" created and instantly approved!`);
+    toast.success(`Template "${created.name}" created and ready to use!`);
     setNewTemplateName('');
     setNewTemplateHeader('');
-    setNewTemplateBody('Hi {{1}}, your notification is ready: {{2}}.');
+    setNewTemplateBody('Hi {{1}}, thank you for choosing our service. Reference: {{2}}.');
+    setNewTemplateFooter('');
+    setNewTemplateButtonText('');
+    setNewTemplateButtonUrl('');
+    setIsCreatingTemplate(false);
     refreshState();
   };
 
-  // Handle API key generation
+  // Generate API Key
   const handleGenerateKey = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKeyName.trim()) return;
     const created = businessStore.generateApiKey(newKeyName.trim());
-    toast.success(`New API key "${created.name}" generated!`);
+    toast.success(`API Key "${created.name}" generated!`);
     setNewKeyName('');
     setIsCreatingKey(false);
     refreshState();
   };
 
-  // Handle Webhook test ping
+  // Webhook Test Ping
   const handleTestWebhookPing = async () => {
     setIsPingingWebhook(true);
     try {
@@ -373,86 +291,109 @@ export function DeltaBusinessHub() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'simulate_test_event' }),
       });
-      const data = await res.json();
       if (res.ok) {
-        toast.success('Webhook delivery verified! Event acknowledged.');
+        toast.success('Webhook delivery verified! Server responded 200 OK.');
         businessStore.updateWebhookConfig({
           last_delivery_status: 'success',
           last_delivery_at: new Date().toISOString(),
         });
         refreshState();
       } else {
-        toast.error('Webhook ping failed');
+        toast.error('Webhook ping failed.');
       }
-    } catch (err) {
-      toast.error('Could not reach webhook endpoint');
+    } catch {
+      toast.error('Could not reach webhook endpoint.');
     } finally {
       setIsPingingWebhook(false);
     }
   };
 
+  // AI Agent Simulator Handler
+  const handleTestSandbox = async () => {
+    if (!sandboxInput.trim() || isSandboxThinking) return;
+    const userText = sandboxInput.trim();
+    setSandboxInput('');
+    setSandboxMessages((prev) => [...prev, { sender: 'user', text: userText, time: 'Just now' }]);
+    setIsSandboxThinking(true);
+    try {
+      const res = await simulateBusinessAiCustomerSupport(userText, profile.business_name, knowledgeFaqs);
+      setSandboxMessages((prev) => [...prev, { sender: 'bot', text: res.reply, time: 'Just now' }]);
+    } catch {
+      setSandboxMessages((prev) => [
+        ...prev,
+        { sender: 'bot', text: 'Thank you for reaching out! Our team has received your query.', time: 'Just now' },
+      ]);
+    } finally {
+      setIsSandboxThinking(false);
+    }
+  };
+
+  const handleAddFaq = () => {
+    if (!newFaqQuestion.trim() || !newFaqAnswer.trim()) {
+      toast.error('Please enter both question and answer.');
+      return;
+    }
+    setKnowledgeFaqs((prev) => [
+      ...prev,
+      { id: `faq-${Date.now()}`, question: newFaqQuestion.trim(), answer: newFaqAnswer.trim() },
+    ]);
+    setNewFaqQuestion('');
+    setNewFaqAnswer('');
+    toast.success('FAQ added to knowledge base');
+  };
+
   const selectedTemplateObj = templates.find((t) => t.name === selectedTemplateName) || templates[0];
 
   return (
-    <div className="flex-1 h-full flex flex-col bg-background overflow-y-auto selection:bg-delta-500/20 selection:text-delta-600">
-      {/* 1. Header Banner */}
-      <header className="border-b border-border/80 bg-card/90 backdrop-blur-xl px-6 py-4 sticky top-0 z-30 flex flex-wrap items-center justify-between gap-4 shadow-2xs">
+    <div className="flex-1 h-full flex flex-col bg-background overflow-y-auto">
+      {/* 1. Clean, Modern Header */}
+      <header className="border-b border-border/80 bg-card/80 backdrop-blur-md px-6 py-3.5 sticky top-0 z-30 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-delta-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center shadow-md shadow-delta-600/25">
-            <Briefcase className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-xl bg-delta-600 text-white flex items-center justify-center shadow-xs">
+            <Briefcase className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-extrabold tracking-tight text-foreground">
-                Delta Business Suite
-              </h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black">
+              <h1 className="text-base font-bold text-foreground">Delta Business</h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
                 <ShieldCheck className="w-3 h-3" />
-                VERIFIED $0 API
+                Verified
               </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              WhatsApp Cloud API Compatible Engine • Zero Delivery Markup • 100% Free
-            </p>
+            <p className="text-xs text-muted-foreground">{profile.business_name} • {profile.phone_number}</p>
           </div>
         </div>
 
-        {/* Top Metric Strip */}
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              Total Meta API Fees Avoided
-            </span>
-            <span className="text-base font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              ₹{savingsMetrics.totalSavingsINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-              <span className="text-xs text-muted-foreground font-semibold">
-                (~${savingsMetrics.totalSavingsUSD.toFixed(0)} USD)
-              </span>
-            </span>
-          </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setActiveSubTab('send')}
+            className="px-3.5 py-1.5 rounded-xl bg-delta-600 hover:bg-delta-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Send Message</span>
+          </button>
 
           <button
             onClick={() => {
               setActiveTab('chats');
               if (conversations[0]) setActiveConversationId(conversations[0].id);
             }}
-            className="px-3.5 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold flex items-center gap-1.5 border border-border/80 transition-colors"
+            className="px-3 py-1.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold flex items-center gap-1.5 border border-border/80 transition-colors"
           >
-            <MessageSquare className="w-3.5 h-3.5 text-delta-600" />
-            <span>Open Customer Inbox</span>
+            <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>Inbox</span>
           </button>
         </div>
       </header>
 
-      {/* 2. Sub-Navigation Tabs */}
-      <div className="border-b border-border/80 bg-muted/30 px-6 py-2 flex items-center gap-2 overflow-x-auto select-none">
+      {/* 2. Simplified Sub-Navigation Tabs */}
+      <div className="border-b border-border/70 bg-card px-6 py-1.5 flex items-center gap-1 overflow-x-auto select-none">
         {[
-          { id: 'dashboard', label: 'Overview & Ledger', icon: Layers },
-          { id: 'playground', label: 'API Playground & Dispatch', icon: Zap },
-          { id: 'ai_agents', label: 'AI Agents & RAG Studio', icon: Sparkles },
-          { id: 'templates', label: 'Template Studio', icon: FileCode2 },
-          { id: 'keys', label: 'API Keys & Webhooks', icon: Key },
-          { id: 'docs', label: 'WhatsApp API Specs & SDK', icon: Globe },
+          { id: 'overview', label: 'Overview', icon: Layers },
+          { id: 'send', label: 'Send Message', icon: Zap },
+          { id: 'templates', label: 'Templates', icon: FileCode2 },
+          { id: 'api', label: 'API & Keys', icon: Key },
+          { id: 'ai', label: 'AI Assistant', icon: Bot },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.id;
@@ -460,10 +401,10 @@ export function DeltaBusinessHub() {
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id as any)}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                 isActive
-                  ? 'bg-card text-foreground shadow-xs border border-border/80 text-delta-600 dark:text-delta-400'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-card/50'
+                  ? 'bg-delta-500/10 text-delta-600 dark:text-delta-400'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -473,228 +414,124 @@ export function DeltaBusinessHub() {
         })}
       </div>
 
-      {/* 3. Tab Contents */}
-      <div className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
-        {/* ==================== TAB 1: OVERVIEW & LEDGER ==================== */}
-        {activeSubTab === 'dashboard' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* KPI Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-muted-foreground mb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider">Total Dispatches</span>
-                  <div className="w-8 h-8 rounded-xl bg-delta-500/10 text-delta-600 flex items-center justify-center">
-                    <Send className="w-4 h-4" />
+      {/* 3. Main Body */}
+      <div className="flex-1 p-6 max-w-6xl w-full mx-auto space-y-6">
+
+        {/* ==================== 1. OVERVIEW ==================== */}
+        {activeSubTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Clean Metrics: 3 Clear, Meaningful Operational Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
+                <div className="flex items-center justify-between text-muted-foreground mb-2">
+                  <span className="text-xs font-medium">Total Messages Sent</span>
+                  <div className="w-7 h-7 rounded-lg bg-delta-500/10 text-delta-600 flex items-center justify-center">
+                    <Send className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-foreground">
-                    {savingsMetrics.totalMessages.toLocaleString()}
-                  </p>
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                    100% delivered with zero drop rate
-                  </p>
-                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {savingsMetrics.totalMessages.toLocaleString()}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  All-time dispatches
+                </p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs flex flex-col justify-between">
-                <div className="flex items-center justify-between text-muted-foreground mb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider">Meta API Equivalent</span>
-                  <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center">
-                    <TrendingDown className="w-4 h-4" />
+              <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
+                <div className="flex items-center justify-between text-muted-foreground mb-2">
+                  <span className="text-xs font-medium">Delivery Success Rate</span>
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-foreground line-through opacity-70">
-                    ₹{savingsMetrics.metaCostINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </p>
-                  <p className="text-[11px] text-rose-500 font-semibold mt-1">
-                    Billed by Meta under PMP model
-                  </p>
-                </div>
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  100%
+                </p>
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                  Active • Zero drop rate
+                </p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs flex flex-col justify-between ring-1 ring-emerald-500/30">
-                <div className="flex items-center justify-between text-muted-foreground mb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                    Delta Actual Billed
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center">
-                    <Receipt className="w-4 h-4" />
+              <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
+                <div className="flex items-center justify-between text-muted-foreground mb-2">
+                  <span className="text-xs font-medium">Active Templates</span>
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                    <FileCode2 className="w-3.5 h-3.5" />
                   </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                    ₹0.00
-                  </p>
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-                    Zero delivery charge • Forever Free
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-delta-600 to-violet-700 text-white shadow-md shadow-delta-600/20 flex flex-col justify-between">
-                <div className="flex items-center justify-between text-white/80 mb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider">Net Business Savings</span>
-                  <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-2xl font-black">
-                    ₹{savingsMetrics.totalSavingsINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </p>
-                  <p className="text-[11px] text-emerald-200 font-semibold mt-1">
-                    100% margin retained by business
-                  </p>
-                </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {templates.length}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Approved & ready to dispatch
+                </p>
               </div>
             </div>
 
-            {/* Rate Card & Category Breakdown Comparison */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 p-5 rounded-2xl bg-card border border-border/80 shadow-xs">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h2 className="text-sm font-bold text-foreground">
-                      Rate Comparison: Meta WhatsApp vs Delta Business
-                    </h2>
-                    <p className="text-xs text-muted-foreground">
-                      Per-message cost breakdown by official Meta conversation category
-                    </p>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full bg-delta-500/10 text-delta-600 dark:text-delta-400 text-[10px] font-black">
-                    INDIA (INR)
-                  </span>
+            {/* Quick Actions & Business Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div
+                onClick={() => setActiveSubTab('send')}
+                className="p-4 rounded-2xl bg-card border border-border/80 hover:border-delta-500/50 hover:bg-delta-50/20 dark:hover:bg-delta-950/20 cursor-pointer transition-all group shadow-xs"
+              >
+                <div className="w-8 h-8 rounded-xl bg-delta-500/10 text-delta-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                  <Zap className="w-4 h-4" />
                 </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead>
-                      <tr className="border-b border-border/70 text-muted-foreground font-bold">
-                        <th className="py-2.5 px-3">Category</th>
-                        <th className="py-2.5 px-3">Use Case</th>
-                        <th className="py-2.5 px-3">Meta Cloud API Rate</th>
-                        <th className="py-2.5 px-3">Delta Business Rate</th>
-                        <th className="py-2.5 px-3 text-right">Your Savings</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/50">
-                      <tr>
-                        <td className="py-3 px-3 font-bold text-foreground flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-violet-500" />
-                          Marketing
-                        </td>
-                        <td className="py-3 px-3 text-muted-foreground">Promotions, offers, product launches</td>
-                        <td className="py-3 px-3 font-mono text-rose-500 font-bold">₹0.8631</td>
-                        <td className="py-3 px-3 font-mono text-emerald-600 dark:text-emerald-400 font-black">₹0.0000</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600">100% Free</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 px-3 font-bold text-foreground flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-sky-500" />
-                          Utility
-                        </td>
-                        <td className="py-3 px-3 text-muted-foreground">Order tracking, receipts, alerts</td>
-                        <td className="py-3 px-3 font-mono text-rose-500 font-bold">₹0.1150</td>
-                        <td className="py-3 px-3 font-mono text-emerald-600 dark:text-emerald-400 font-black">₹0.0000</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600">100% Free</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 px-3 font-bold text-foreground flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-amber-500" />
-                          Authentication
-                        </td>
-                        <td className="py-3 px-3 text-muted-foreground">One-time passcodes (OTP), verification</td>
-                        <td className="py-3 px-3 font-mono text-rose-500 font-bold">₹0.1150</td>
-                        <td className="py-3 px-3 font-mono text-emerald-600 dark:text-emerald-400 font-black">₹0.0000</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600">100% Free</td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 px-3 font-bold text-foreground flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          Service
-                        </td>
-                        <td className="py-3 px-3 text-muted-foreground">Customer support, replies inside 24h</td>
-                        <td className="py-3 px-3 font-mono text-rose-500 font-bold">₹0.1150</td>
-                        <td className="py-3 px-3 font-mono text-emerald-600 dark:text-emerald-400 font-black">₹0.0000</td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600">100% Free</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                <h3 className="text-xs font-bold text-foreground flex items-center justify-between">
+                  Send a Message
+                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-delta-600 group-hover:translate-x-0.5 transition-all" />
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Test template notifications, alerts, or direct texts with live preview.
+                </p>
               </div>
 
-              {/* Business Account Details Card */}
-              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-sm font-bold text-foreground">Business Identity</h2>
-                    <span className="text-[10px] text-muted-foreground font-mono">ID: {profile.id}</span>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-4">
-                    <img
-                      src={profile.avatar_url}
-                      alt={profile.business_name}
-                      className="w-12 h-12 rounded-2xl object-cover ring-2 ring-delta-500/30"
-                    />
-                    <div>
-                      <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                        {profile.business_name}
-                        <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                      </h3>
-                      <p className="text-xs text-muted-foreground font-mono">{profile.phone_number}</p>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                    {profile.description}
-                  </p>
-
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex justify-between py-1 border-b border-border/60">
-                      <span className="text-muted-foreground">Industry</span>
-                      <span className="font-semibold">{profile.vertical}</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-border/60">
-                      <span className="text-muted-foreground">Support Email</span>
-                      <span className="font-semibold">{profile.email}</span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span className="text-muted-foreground">Active Templates</span>
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {templates.length} Approved
-                      </span>
-                    </div>
-                  </div>
+              <div
+                onClick={() => setActiveSubTab('templates')}
+                className="p-4 rounded-2xl bg-card border border-border/80 hover:border-delta-500/50 hover:bg-delta-50/20 dark:hover:bg-delta-950/20 cursor-pointer transition-all group shadow-xs"
+              >
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                  <FileCode2 className="w-4 h-4" />
                 </div>
+                <h3 className="text-xs font-bold text-foreground flex items-center justify-between">
+                  Manage Templates
+                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Create and organize approved messaging templates for orders, OTPs, and updates.
+                </p>
+              </div>
 
-                <button
-                  onClick={() => setActiveSubTab('playground')}
-                  className="mt-4 w-full py-2.5 rounded-xl bg-delta-600 hover:bg-delta-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-98 shadow-xs"
-                >
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>Test API in Playground</span>
-                </button>
+              <div
+                onClick={() => setActiveSubTab('api')}
+                className="p-4 rounded-2xl bg-card border border-border/80 hover:border-delta-500/50 hover:bg-delta-50/20 dark:hover:bg-delta-950/20 cursor-pointer transition-all group shadow-xs"
+              >
+                <div className="w-8 h-8 rounded-xl bg-violet-500/10 text-violet-600 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+                  <Key className="w-4 h-4" />
+                </div>
+                <h3 className="text-xs font-bold text-foreground flex items-center justify-between">
+                  API & Webhooks
+                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-violet-600 group-hover:translate-x-0.5 transition-all" />
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Access API keys, configure webhooks, and copy integration code snippets.
+                </p>
               </div>
             </div>
 
-            {/* Real-time Zero-Cost Ledger Table */}
+            {/* Recent Activity Log */}
             <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">
-                    Live Zero-Charge Ledger & Audit Log
-                  </h2>
+                  <h2 className="text-sm font-bold text-foreground">Recent Message Activity</h2>
                   <p className="text-xs text-muted-foreground">
-                    Every message dispatched through Delta API records real-time savings with cryptographic verification
+                    Real-time log of dispatched business messages
                   </p>
                 </div>
                 <button
                   onClick={refreshState}
                   className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                  title="Refresh Ledger"
+                  title="Refresh Activity"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
@@ -703,35 +540,33 @@ export function DeltaBusinessHub() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="border-b border-border/70 text-muted-foreground font-bold">
-                      <th className="py-2.5 px-3">Timestamp</th>
+                    <tr className="border-b border-border/70 text-muted-foreground font-semibold">
+                      <th className="py-2.5 px-3">Time</th>
                       <th className="py-2.5 px-3">Recipient</th>
                       <th className="py-2.5 px-3">Category</th>
-                      <th className="py-2.5 px-3">Payload Type</th>
-                      <th className="py-2.5 px-3">Meta Rate</th>
-                      <th className="py-2.5 px-3">Delta Fee</th>
-                      <th className="py-2.5 px-3 text-right">Net Saved</th>
+                      <th className="py-2.5 px-3">Type</th>
+                      <th className="py-2.5 px-3 text-right">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/50 font-mono">
-                    {ledger.map((entry) => (
+                  <tbody className="divide-y divide-border/50">
+                    {ledger.slice(0, 8).map((entry) => (
                       <tr key={entry.id} className="hover:bg-muted/40 transition-colors">
-                        <td className="py-2.5 px-3 text-muted-foreground text-[11px]">
-                          {new Date(entry.timestamp).toLocaleTimeString()}
+                        <td className="py-2.5 px-3 text-muted-foreground font-mono text-[11px]">
+                          {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
-                        <td className="py-2.5 px-3 font-sans font-medium text-foreground">
+                        <td className="py-2.5 px-3 font-medium text-foreground">
                           {entry.recipient}
                         </td>
                         <td className="py-2.5 px-3">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                               entry.category === 'MARKETING'
-                                ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400'
+                                ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
                                 : entry.category === 'UTILITY'
-                                ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400'
+                                ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
                                 : entry.category === 'AUTHENTICATION'
-                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                             }`}
                           >
                             {entry.category}
@@ -740,14 +575,11 @@ export function DeltaBusinessHub() {
                         <td className="py-2.5 px-3 text-muted-foreground text-[11px]">
                           {entry.message_type}
                         </td>
-                        <td className="py-2.5 px-3 text-rose-500 font-bold">
-                          ₹{entry.meta_whatsapp_rate.toFixed(4)}
-                        </td>
-                        <td className="py-2.5 px-3 text-emerald-600 dark:text-emerald-400 font-bold">
-                          ₹{entry.delta_rate.toFixed(4)}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-emerald-600 dark:text-emerald-400 font-bold">
-                          +₹{entry.saved_amount.toFixed(4)}
+                        <td className="py-2.5 px-3 text-right">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            <Check className="w-3 h-3" />
+                            Delivered
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -758,54 +590,51 @@ export function DeltaBusinessHub() {
           </div>
         )}
 
-        {/* ==================== TAB 2: API PLAYGROUND & DISPATCH ==================== */}
-        {activeSubTab === 'playground' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
-            {/* Left: Playground Form (7 cols) */}
-            <div className="lg:col-span-7 space-y-5">
+        {/* ==================== 2. SEND MESSAGE ==================== */}
+        {activeSubTab === 'send' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Form (7 cols) */}
+            <div className="lg:col-span-7 space-y-4">
               <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">Interactive API Dispatcher</h2>
+                  <h2 className="text-sm font-bold text-foreground">Send Message</h2>
                   <p className="text-xs text-muted-foreground">
-                    Construct and execute live WhatsApp Cloud API payloads at ₹0.00 cost
+                    Compose and deliver notifications or interactive messages
                   </p>
                 </div>
 
-                {/* Recipient Phone */}
+                {/* Recipient Input */}
                 <div>
-                  <label className="block text-xs font-bold text-foreground mb-1">
-                    Recipient Phone Number / Identifier
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Recipient Phone Number
                   </label>
                   <input
                     type="text"
                     value={targetContact}
                     onChange={(e) => setTargetContact(e.target.value)}
                     placeholder="+919876543210"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-xs font-mono focus:outline-none focus:ring-2 focus:ring-delta-500"
+                    className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs font-mono focus:outline-none focus:ring-2 focus:ring-delta-500/30"
                   />
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Delivered straight to the recipient’s Delta client via WebSockets.
-                  </p>
                 </div>
 
-                {/* Message Type Selector */}
+                {/* Message Format Selector */}
                 <div>
-                  <label className="block text-xs font-bold text-foreground mb-1.5">
-                    Payload Format (WhatsApp Cloud API Specification)
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Message Type
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { id: 'template', label: 'Template (Variables)' },
-                      { id: 'interactive', label: 'Interactive (Buttons)' },
+                      { id: 'template', label: 'Template' },
                       { id: 'text', label: 'Direct Text' },
+                      { id: 'interactive', label: 'Buttons' },
                     ].map((type) => (
                       <button
                         key={type.id}
                         type="button"
                         onClick={() => setSelectedMessageType(type.id as any)}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                        className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all border ${
                           selectedMessageType === type.id
-                            ? 'bg-delta-500/10 border-delta-500 text-delta-600 dark:text-delta-400'
+                            ? 'bg-delta-500/10 border-delta-500 text-delta-600 dark:text-delta-400 font-bold'
                             : 'border-border bg-background text-muted-foreground hover:bg-muted'
                         }`}
                       >
@@ -815,17 +644,17 @@ export function DeltaBusinessHub() {
                   </div>
                 </div>
 
-                {/* Conditional Fields based on Type */}
+                {/* Template Fields */}
                 {selectedMessageType === 'template' && (
-                  <div className="space-y-3 p-4 rounded-xl bg-muted/40 border border-border/70">
+                  <div className="space-y-3 p-3.5 rounded-xl bg-muted/40 border border-border/70">
                     <div>
-                      <label className="block text-xs font-bold text-foreground mb-1">
-                        Select Approved Template
+                      <label className="block text-xs font-semibold text-foreground mb-1">
+                        Select Template
                       </label>
                       <select
                         value={selectedTemplateName}
                         onChange={(e) => setSelectedTemplateName(e.target.value)}
-                        className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-delta-500"
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs font-medium focus:outline-none focus:ring-2 focus:ring-delta-500/30"
                       >
                         {templates.map((t) => (
                           <option key={t.id} value={t.name}>
@@ -837,7 +666,7 @@ export function DeltaBusinessHub() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1">
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">
                           Placeholder {'{{1}}'}
                         </label>
                         <input
@@ -849,7 +678,7 @@ export function DeltaBusinessHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1">
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">
                           Placeholder {'{{2}}'}
                         </label>
                         <input
@@ -861,7 +690,7 @@ export function DeltaBusinessHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1">
+                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">
                           Placeholder {'{{3}}'}
                         </label>
                         <input
@@ -876,16 +705,30 @@ export function DeltaBusinessHub() {
                   </div>
                 )}
 
+                {/* Direct Text Field */}
+                {selectedMessageType === 'text' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Message Text
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={customTextMessage}
+                      onChange={(e) => setCustomTextMessage(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-delta-500/30"
+                    />
+                  </div>
+                )}
+
+                {/* Interactive Buttons Fields */}
                 {selectedMessageType === 'interactive' && (
-                  <div className="space-y-3 p-4 rounded-xl bg-muted/40 border border-border/70">
-                    <p className="text-xs font-bold text-foreground">
-                      Interactive Quick Reply Buttons (2 Action Buttons)
+                  <div className="space-y-3 p-3.5 rounded-xl bg-muted/40 border border-border/70">
+                    <p className="text-xs font-semibold text-foreground">
+                      Button Labels
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1">
-                          Button 1 Title
-                        </label>
+                        <label className="block text-[11px] text-muted-foreground mb-1">Button 1</label>
                         <input
                           type="text"
                           value={interactiveButton1}
@@ -894,9 +737,7 @@ export function DeltaBusinessHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-bold text-muted-foreground mb-1">
-                          Button 2 Title
-                        </label>
+                        <label className="block text-[11px] text-muted-foreground mb-1">Button 2</label>
                         <input
                           type="text"
                           value={interactiveButton2}
@@ -908,88 +749,76 @@ export function DeltaBusinessHub() {
                   </div>
                 )}
 
-                {selectedMessageType === 'text' && (
-                  <div>
-                    <label className="block text-xs font-bold text-foreground mb-1">
-                      Free-Form Text Body
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={customTextMessage}
-                      onChange={(e) => setCustomTextMessage(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-delta-500"
-                    />
-                  </div>
-                )}
-
-                {/* Dispatch Button */}
+                {/* Send Button */}
                 <button
-                  onClick={handleDispatchPlaygroundMessage}
+                  onClick={handleDispatchMessage}
                   disabled={isDispatching}
-                  className="w-full py-3 rounded-xl bg-delta-600 hover:bg-delta-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-all active:scale-98 shadow-md shadow-delta-600/20 disabled:opacity-50"
+                  className="w-full py-2.5 rounded-xl bg-delta-600 hover:bg-delta-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all active:scale-98 shadow-xs disabled:opacity-50"
                 >
-                  <Send className={`w-4 h-4 ${isDispatching ? 'animate-spin' : ''}`} />
-                  <span>
-                    {isDispatching ? 'Dispatching over Delta...' : 'Send API Message (₹0.00 Fee)'}
-                  </span>
+                  <Send className={`w-3.5 h-3.5 ${isDispatching ? 'animate-spin' : ''}`} />
+                  <span>{isDispatching ? 'Sending...' : 'Send Message Now'}</span>
                 </button>
               </div>
 
-              {/* API Response Inspector */}
+              {/* Delivery Receipt / Response Accordion */}
               {lastApiResponse && (
-                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-2 animate-fade-in">
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" />
-                      HTTP 200 OK — Delivery Confirmed
+                      Message Sent Successfully
                     </span>
                     <button
-                      onClick={() => copyToClipboard(JSON.stringify(lastApiResponse, null, 2), 'Response JSON')}
-                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      onClick={() => setShowRawJson(!showRawJson)}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 font-medium"
                     >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy</span>
+                      <span>{showRawJson ? 'Hide Details' : 'View API JSON'}</span>
+                      <ChevronDown className={`w-3 h-3 transition-transform ${showRawJson ? 'rotate-180' : ''}`} />
                     </button>
                   </div>
-                  <pre className="p-3.5 rounded-xl bg-muted/60 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
-                    {JSON.stringify(lastApiResponse, null, 2)}
-                  </pre>
+
+                  {showRawJson && (
+                    <div className="mt-2 pt-2 border-t border-border/60">
+                      <pre className="p-3 rounded-xl bg-muted/60 text-[11px] font-mono text-foreground overflow-x-auto">
+                        {JSON.stringify(lastApiResponse, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Right: Real-time Device Mockup Preview (5 cols) */}
+            {/* Live Phone Mockup (5 cols) */}
             <div className="lg:col-span-5 flex flex-col items-center">
-              <div className="w-full max-w-[340px] rounded-[38px] border-4 border-foreground/20 bg-background shadow-2xl overflow-hidden p-3 flex flex-col h-[560px]">
-                {/* Phone Speaker Notch */}
-                <div className="w-24 h-4 bg-muted/80 rounded-full mx-auto mb-3" />
+              <div className="w-full max-w-[320px] rounded-[36px] border-4 border-foreground/15 bg-background shadow-xl overflow-hidden p-3 flex flex-col h-[520px]">
+                {/* Phone Speaker */}
+                <div className="w-20 h-3 bg-muted/70 rounded-full mx-auto mb-2" />
 
-                {/* Chat Header in Mockup */}
-                <div className="px-3 py-2 border-b border-border/80 flex items-center gap-2.5 bg-card rounded-t-2xl">
+                {/* Chat Header */}
+                <div className="px-3 py-2 border-b border-border/80 flex items-center gap-2 bg-card rounded-t-xl">
                   <img
                     src={profile.avatar_url}
                     alt={profile.business_name}
-                    className="w-8 h-8 rounded-full object-cover"
+                    className="w-7 h-7 rounded-full object-cover"
                   />
                   <div className="flex-1 truncate">
                     <p className="text-xs font-bold text-foreground flex items-center gap-1 truncate">
                       {profile.business_name}
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
                     </p>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                      Verified Business Account
+                    <p className="text-[10px] text-muted-foreground">
+                      Business Account
                     </p>
                   </div>
                 </div>
 
-                {/* Mockup Messages Container */}
-                <div className="flex-1 p-3 bg-muted/20 overflow-y-auto space-y-3 text-xs">
-                  {/* Incoming Business Message Bubble */}
+                {/* Chat Messages */}
+                <div className="flex-1 p-3 bg-muted/20 overflow-y-auto space-y-2.5 text-xs">
                   <div className="bg-card border border-border/80 rounded-2xl rounded-tl-xs p-3 shadow-xs space-y-2">
                     {selectedMessageType === 'template' && (
                       <>
                         {selectedTemplateObj.header_content && (
-                          <p className="text-xs font-extrabold text-foreground border-b border-border/50 pb-1">
+                          <p className="text-xs font-bold text-foreground border-b border-border/50 pb-1">
                             {selectedTemplateObj.header_content}
                           </p>
                         )}
@@ -1005,12 +834,12 @@ export function DeltaBusinessHub() {
                           </p>
                         )}
                         {selectedTemplateObj.buttons && selectedTemplateObj.buttons.length > 0 && (
-                          <div className="space-y-1.5 pt-2 border-t border-border/50">
+                          <div className="space-y-1 pt-1.5 border-t border-border/50">
                             {selectedTemplateObj.buttons.map((btn, bIdx) => (
                               <button
                                 key={bIdx}
                                 type="button"
-                                className="w-full py-1.5 px-3 rounded-lg bg-delta-50 dark:bg-delta-950/60 text-delta-600 dark:text-delta-400 text-xs font-bold border border-delta-200 dark:border-delta-800 text-center flex items-center justify-center gap-1.5"
+                                className="w-full py-1.5 px-3 rounded-lg bg-delta-500/10 text-delta-600 dark:text-delta-400 text-xs font-semibold text-center flex items-center justify-center gap-1"
                               >
                                 {btn.type === 'URL' && <ExternalLink className="w-3 h-3" />}
                                 <span>{btn.text}</span>
@@ -1024,18 +853,18 @@ export function DeltaBusinessHub() {
                     {selectedMessageType === 'interactive' && (
                       <>
                         <p className="text-xs text-foreground leading-relaxed">
-                          How would you like to proceed with your booking?
+                          How would you like to proceed?
                         </p>
-                        <div className="space-y-1.5 pt-2 border-t border-border/50">
+                        <div className="space-y-1 pt-1.5 border-t border-border/50">
                           <button
                             type="button"
-                            className="w-full py-1.5 px-3 rounded-lg bg-delta-50 dark:bg-delta-950/60 text-delta-600 dark:text-delta-400 text-xs font-bold border border-delta-200 dark:border-delta-800 text-center"
+                            className="w-full py-1.5 px-3 rounded-lg bg-delta-500/10 text-delta-600 dark:text-delta-400 text-xs font-semibold text-center"
                           >
                             {interactiveButton1}
                           </button>
                           <button
                             type="button"
-                            className="w-full py-1.5 px-3 rounded-lg bg-delta-50 dark:bg-delta-950/60 text-delta-600 dark:text-delta-400 text-xs font-bold border border-delta-200 dark:border-delta-800 text-center"
+                            className="w-full py-1.5 px-3 rounded-lg bg-delta-500/10 text-delta-600 dark:text-delta-400 text-xs font-semibold text-center"
                           >
                             {interactiveButton2}
                           </button>
@@ -1049,409 +878,145 @@ export function DeltaBusinessHub() {
                       </p>
                     )}
 
-                    <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                        ₹0.00 Fee
-                      </span>
+                    <div className="flex items-center justify-end text-[10px] text-muted-foreground pt-1">
                       <span>Now • Delivered</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="p-2 border-t border-border/80 text-center text-[10px] text-muted-foreground font-semibold">
-                  Live Preview on Mobile Client
+                <div className="p-1.5 border-t border-border/80 text-center text-[10px] text-muted-foreground">
+                  Live Preview
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ==================== TAB 2.5: AI AGENTS & RAG STUDIO ==================== */}
-        {activeSubTab === 'ai_agents' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Top AI Banner */}
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-violet-500/15 via-purple-500/10 to-delta-500/15 border border-violet-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-violet-600/20 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 border border-violet-500/30 shadow-xs">
-                  <Sparkles className="w-5 h-5 text-violet-500 animate-pulse" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-extrabold text-foreground tracking-tight">
-                      Delta AI Autonomous Customer Agent & Knowledge Hub
-                    </h2>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-500/20">
-                      $0.00 Meta Markup
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Deploy 24/7 intelligent customer service bots with FAQ RAG matching. Free tier Google Gemini or sovereign local SLMs with zero cloud fees.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-card border border-border/80 text-foreground">
-                  ₹0.00 AI Resolution Fee
-                </span>
-              </div>
-            </div>
-
-            {/* Main 2-Column Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: Agent Persona & Knowledge FAQs (7 cols) */}
-              <div className="lg:col-span-7 space-y-5">
-                {/* 1. Bot Profile Card */}
-                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
-                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-violet-500" />
-                    Agent Persona & Configuration
-                  </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                        Agent Display Name
-                      </label>
-                      <input
-                        type="text"
-                        value={botName}
-                        onChange={(e) => setBotName(e.target.value)}
-                        className="w-full bg-muted/60 text-foreground text-xs px-3 py-2 rounded-xl border border-border/80 focus:border-violet-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                        Tone & Dialect
-                      </label>
-                      <select
-                        value={botPersona}
-                        onChange={(e) => setBotPersona(e.target.value as any)}
-                        className="w-full bg-muted/60 text-foreground text-xs px-3 py-2 rounded-xl border border-border/80 focus:border-violet-500 focus:outline-none"
-                      >
-                        <option value="friendly">Warm & Friendly (General Retail)</option>
-                        <option value="professional">Corporate & Formal (Enterprise B2B)</option>
-                        <option value="tanglish">Authentic Tanglish Slang (Regional Outreach)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                      Initial Greeting & Welcome Message
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={botWelcomeMsg}
-                      onChange={(e) => setBotWelcomeMsg(e.target.value)}
-                      className="w-full bg-muted/60 text-foreground text-xs px-3 py-2 rounded-xl border border-border/80 focus:border-violet-500 focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border/60">
-                    <div>
-                      <p className="text-xs font-bold text-foreground">Autonomous Auto-Pilot</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Automatically reply to incoming customer WhatsApp/Delta messages using Knowledge Base
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setBotAutoPilot(!botAutoPilot)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        botAutoPilot ? 'bg-violet-600' : 'bg-muted-foreground/30'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          botAutoPilot ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. Knowledge Base FAQs (RAG) */}
-                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                        <FileCode2 className="w-4 h-4 text-emerald-500" />
-                        Knowledge Base FAQs (Instant RAG)
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        The AI bot searches these business policies before generating answers.
-                      </p>
-                    </div>
-                    <span className="text-xs font-bold text-muted-foreground">
-                      {knowledgeFaqs.length} FAQs Loaded
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {knowledgeFaqs.map((faq) => (
-                      <div
-                        key={faq.id}
-                        className="p-3 rounded-xl bg-muted/40 border border-border/60 flex items-start justify-between gap-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-foreground">Q: {faq.question}</p>
-                          <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                            A: {faq.answer}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteFaq(faq.id)}
-                          className="text-muted-foreground hover:text-destructive p-1 rounded-lg transition-colors"
-                          title="Delete FAQ"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Add New FAQ Form */}
-                  <div className="p-3.5 rounded-xl bg-muted/20 border border-dashed border-border/80 space-y-2.5">
-                    <p className="text-xs font-bold text-foreground">+ Add New Policy / FAQ</p>
-                    <input
-                      type="text"
-                      placeholder="Question (e.g. Do you ship to Bangalore?)"
-                      value={newFaqQuestion}
-                      onChange={(e) => setNewFaqQuestion(e.target.value)}
-                      className="w-full bg-card text-foreground text-xs px-3 py-2 rounded-xl border border-border/80 focus:border-violet-500 focus:outline-none"
-                    />
-                    <textarea
-                      rows={2}
-                      placeholder="Answer (e.g. Yes! We offer standard 24hr delivery to all Bangalore pin codes.)"
-                      value={newFaqAnswer}
-                      onChange={(e) => setNewFaqAnswer(e.target.value)}
-                      className="w-full bg-card text-foreground text-xs px-3 py-2 rounded-xl border border-border/80 focus:border-violet-500 focus:outline-none resize-none"
-                    />
-                    <button
-                      onClick={handleAddFaq}
-                      className="px-4 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-                    >
-                      Save FAQ to Knowledge Base
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Interactive Bot Live Test Simulator (5 cols) */}
-              <div className="lg:col-span-5 space-y-4">
-                <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs flex flex-col h-[580px]">
-                  <div className="flex items-center justify-between pb-3 border-b border-border/80">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-violet-600/20 text-violet-600 flex items-center justify-center font-bold text-xs">
-                        🤖
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-foreground">{botName} Simulator</h4>
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Live Sandbox Mode
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-mono text-muted-foreground">$0.00 / query</span>
-                  </div>
-
-                  {/* Sandbox Messages Stream */}
-                  <div className="flex-1 overflow-y-auto py-3 space-y-2.5">
-                    {sandboxMessages.map((msg, i) => (
-                      <div
-                        key={i}
-                        className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-                      >
-                        <div
-                          className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed ${
-                            msg.sender === 'user'
-                              ? 'bg-delta-600 text-white rounded-br-xs'
-                              : 'bg-muted/70 text-foreground border border-border/60 rounded-bl-xs'
-                          }`}
-                        >
-                          <p className="whitespace-pre-wrap">{msg.text}</p>
-                        </div>
-                        <span className="text-[9px] text-muted-foreground px-1 mt-0.5 font-mono">
-                          {msg.time}
-                        </span>
-                      </div>
-                    ))}
-
-                    {isSandboxThinking && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground italic px-2">
-                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce" />
-                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce [animation-delay:0.2s]" />
-                        <span className="w-2 h-2 rounded-full bg-violet-500 animate-bounce [animation-delay:0.4s]" />
-                        <span className="text-[11px] ml-1">{botName} is matching knowledge FAQs...</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Preset Test Chips */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto py-2 border-t border-border/60">
-                    <span className="text-[10px] font-bold text-muted-foreground shrink-0">Test:</span>
-                    {[
-                      'Delivery timeframe?',
-                      'How to return an item?',
-                      'Where is your store?',
-                      'Track order #DLT-98421',
-                    ].map((chip, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setSandboxInput(chip)}
-                        className="shrink-0 text-[10px] font-medium px-2 py-1 rounded-lg bg-muted hover:bg-muted/80 text-foreground border border-border/60 transition-colors"
-                      >
-                        {chip}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Sandbox Input Bar */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-border/80">
-                    <input
-                      type="text"
-                      placeholder="Ask the bot anything..."
-                      value={sandboxInput}
-                      onChange={(e) => setSandboxInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleTestSandbox()}
-                      className="flex-1 bg-muted/60 text-foreground text-xs px-3 py-2 rounded-xl border border-border/80 focus:border-violet-500 focus:outline-none"
-                    />
-                    <button
-                      onClick={handleTestSandbox}
-                      disabled={isSandboxThinking || !sandboxInput.trim()}
-                      className="px-3.5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-40 cursor-pointer flex items-center gap-1"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ==================== TAB 3: TEMPLATE STUDIO ==================== */}
+        {/* ==================== 3. TEMPLATES ==================== */}
         {activeSubTab === 'templates' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Create Template Form */}
-            <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-foreground">Create WhatsApp-Compatible Template</h2>
+                <h2 className="text-base font-bold text-foreground">Message Templates</h2>
                 <p className="text-xs text-muted-foreground">
-                  Templates created on Delta Business receive instant auto-approval with zero review wait times
+                  Pre-configured templates for customer notifications, OTPs, and updates
                 </p>
               </div>
+              <button
+                onClick={() => setIsCreatingTemplate(!isCreatingTemplate)}
+                className="px-3.5 py-2 rounded-xl bg-delta-600 hover:bg-delta-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isCreatingTemplate ? 'Close Form' : 'New Template'}</span>
+              </button>
+            </div>
 
-              <form onSubmit={handleCreateTemplate} className="space-y-4">
+            {/* Template Creation Form */}
+            {isCreatingTemplate && (
+              <form onSubmit={handleCreateTemplate} className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+                <h3 className="text-xs font-bold text-foreground">Create New Template</h3>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-foreground mb-1">
-                      Template Name (lowercase with underscores)
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Template Name (e.g. order_alert)
                     </label>
                     <input
                       type="text"
                       value={newTemplateName}
                       onChange={(e) => setNewTemplateName(e.target.value)}
                       placeholder="e.g. appointment_reminder"
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-xs font-mono"
+                      className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs font-mono"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-foreground mb-1">
+                    <label className="block text-xs font-semibold text-foreground mb-1">
                       Category
                     </label>
                     <select
                       value={newTemplateCategory}
                       onChange={(e) => setNewTemplateCategory(e.target.value as any)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-xs font-semibold"
+                      className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs font-medium"
                     >
-                      <option value="UTILITY">UTILITY (Transactional alerts & tracking)</option>
-                      <option value="MARKETING">MARKETING (Offers, campaigns, announcements)</option>
-                      <option value="AUTHENTICATION">AUTHENTICATION (One-Time Passwords / OTPs)</option>
+                      <option value="UTILITY">Utility (Alerts & Order Tracking)</option>
+                      <option value="MARKETING">Marketing (Promotions & Updates)</option>
+                      <option value="AUTHENTICATION">Authentication (OTP Verification)</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-foreground mb-1">
+                  <label className="block text-xs font-semibold text-foreground mb-1">
                     Header Title (Optional)
                   </label>
                   <input
                     type="text"
                     value={newTemplateHeader}
                     onChange={(e) => setNewTemplateHeader(e.target.value)}
-                    placeholder="e.g. 🗓️ Upcoming Appointment Confirmed"
+                    placeholder="e.g. 📦 Order Dispatched"
                     className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-foreground mb-1">
-                    Body Text with Placeholders {'{{1}}'}, {'{{2}}'}
+                  <label className="block text-xs font-semibold text-foreground mb-1">
+                    Message Body (use {'{{1}}'}, {'{{2}}'} for placeholders)
                   </label>
                   <textarea
                     rows={3}
                     value={newTemplateBody}
                     onChange={(e) => setNewTemplateBody(e.target.value)}
-                    placeholder="Hi {{1}}, your booking is confirmed for {{2}}."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background text-xs leading-relaxed"
+                    className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs leading-relaxed"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-foreground mb-1">
-                      Footer Text (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={newTemplateFooter}
-                      onChange={(e) => setNewTemplateFooter(e.target.value)}
-                      placeholder="e.g. Delta Care Team"
-                      className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-foreground mb-1">
-                      Action Button Text
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Button Label (Optional)
                     </label>
                     <input
                       type="text"
                       value={newTemplateButtonText}
                       onChange={(e) => setNewTemplateButtonText(e.target.value)}
-                      placeholder="e.g. View Booking"
+                      placeholder="e.g. Track Order"
                       className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-foreground mb-1">
-                      Action Button URL
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Button URL (Optional)
                     </label>
                     <input
                       type="text"
                       value={newTemplateButtonUrl}
                       onChange={(e) => setNewTemplateButtonUrl(e.target.value)}
-                      placeholder="https://example.com/order/{{1}}"
+                      placeholder="https://example.com/order/{{2}}"
                       className="w-full px-3.5 py-2 rounded-xl border border-border bg-background text-xs font-mono"
                     />
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-delta-600 hover:bg-delta-700 text-white font-bold text-xs flex items-center gap-2 transition-all active:scale-98 shadow-xs"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Register & Auto-Approve Template</span>
-                </button>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingTemplate(false)}
+                    className="px-4 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-delta-600 hover:bg-delta-700 text-white font-bold text-xs"
+                  >
+                    Save Template
+                  </button>
+                </div>
               </form>
-            </div>
+            )}
 
-            {/* List of Registered Templates */}
+            {/* Template List Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {templates.map((tmpl) => (
                 <div
@@ -1463,22 +1028,17 @@ export function DeltaBusinessHub() {
                       <span className="font-mono font-bold text-xs text-foreground">
                         {tmpl.name}
                       </span>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            tmpl.category === 'MARKETING'
-                              ? 'bg-violet-500/15 text-violet-600'
-                              : tmpl.category === 'UTILITY'
-                              ? 'bg-sky-500/15 text-sky-600'
-                              : 'bg-amber-500/15 text-amber-600'
-                          }`}
-                        >
-                          {tmpl.category}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 text-[10px] font-bold flex items-center gap-1">
-                          <Check className="w-3 h-3" /> APPROVED
-                        </span>
-                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          tmpl.category === 'MARKETING'
+                            ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400'
+                            : tmpl.category === 'UTILITY'
+                            ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
+                        {tmpl.category}
+                      </span>
                     </div>
 
                     {tmpl.header_content && (
@@ -1494,62 +1054,65 @@ export function DeltaBusinessHub() {
                     )}
                   </div>
 
-                  {tmpl.buttons && tmpl.buttons.length > 0 && (
-                    <div className="pt-2 border-t border-border/60 flex flex-wrap gap-2">
-                      {tmpl.buttons.map((b, bIdx) => (
-                        <span
-                          key={bIdx}
-                          className="px-2.5 py-1 rounded-lg bg-muted text-muted-foreground text-[11px] font-semibold"
-                        >
-                          {b.text}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <Check className="w-3 h-3" /> Approved
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSelectedTemplateName(tmpl.name);
+                        setActiveSubTab('send');
+                      }}
+                      className="text-xs font-semibold text-delta-600 hover:text-delta-700 flex items-center gap-1"
+                    >
+                      <span>Use Template</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ==================== TAB 4: API KEYS & WEBHOOKS ==================== */}
-        {activeSubTab === 'keys' && (
-          <div className="space-y-6 animate-fade-in">
+        {/* ==================== 4. DEVELOPER & API ==================== */}
+        {activeSubTab === 'api' && (
+          <div className="space-y-6">
             {/* API Keys Card */}
             <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">Secret API Keys</h2>
+                  <h2 className="text-sm font-bold text-foreground">API Keys</h2>
                   <p className="text-xs text-muted-foreground">
-                    Authenticate outbound calls to /api/v1/messages using Bearer tokens
+                    Use Bearer tokens to authenticate HTTP requests to `/api/v1/messages`
                   </p>
                 </div>
                 <button
                   onClick={() => setIsCreatingKey(!isCreatingKey)}
-                  className="px-3 py-1.5 rounded-xl bg-delta-600 hover:bg-delta-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors"
+                  className="px-3 py-1.5 rounded-xl bg-delta-600 hover:bg-delta-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Generate New Key</span>
+                  <span>New Key</span>
                 </button>
               </div>
 
               {isCreatingKey && (
                 <form
                   onSubmit={handleGenerateKey}
-                  className="p-4 rounded-xl bg-muted/40 border border-border flex items-center gap-3 animate-fade-in"
+                  className="p-3.5 rounded-xl bg-muted/40 border border-border flex items-center gap-2"
                 >
                   <input
                     type="text"
                     value={newKeyName}
                     onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="Key Identifier (e.g. Staging CRM Server)"
+                    placeholder="Key Name (e.g. Production Server)"
                     className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-xs"
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-lg bg-delta-600 text-white font-bold text-xs"
+                    className="px-3.5 py-2 rounded-lg bg-delta-600 text-white font-bold text-xs"
                   >
-                    Create
+                    Generate
                   </button>
                 </form>
               )}
@@ -1557,12 +1120,11 @@ export function DeltaBusinessHub() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead>
-                    <tr className="border-b border-border/70 text-muted-foreground font-bold">
+                    <tr className="border-b border-border/70 text-muted-foreground font-semibold">
                       <th className="py-2.5 px-3">Name</th>
                       <th className="py-2.5 px-3">Token</th>
-                      <th className="py-2.5 px-3">Created</th>
                       <th className="py-2.5 px-3">Status</th>
-                      <th className="py-2.5 px-3 text-right">Actions</th>
+                      <th className="py-2.5 px-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50">
@@ -1579,11 +1141,8 @@ export function DeltaBusinessHub() {
                             <Copy className="w-3.5 h-3.5" />
                           </button>
                         </td>
-                        <td className="py-3 px-3 text-muted-foreground">
-                          {new Date(key.created_at).toLocaleDateString()}
-                        </td>
                         <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 text-[10px] font-bold">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold">
                             Active
                           </span>
                         </td>
@@ -1607,28 +1166,28 @@ export function DeltaBusinessHub() {
               </div>
             </div>
 
-            {/* Webhook Configuration Card */}
+            {/* Webhooks Card */}
             <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">Webhook Subscriptions</h2>
+                  <h2 className="text-sm font-bold text-foreground">Webhook Settings</h2>
                   <p className="text-xs text-muted-foreground">
-                    Receive delivery receipts (`sent`, `delivered`, `read`) and incoming messages
+                    Receive delivery receipts and incoming messages
                   </p>
                 </div>
                 <button
                   onClick={handleTestWebhookPing}
                   disabled={isPingingWebhook}
-                  className="px-3 py-1.5 rounded-xl border border-border hover:bg-muted text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  className="px-3 py-1.5 rounded-xl border border-border hover:bg-muted text-xs font-semibold flex items-center gap-1.5 transition-colors"
                 >
                   <Webhook className={`w-3.5 h-3.5 text-delta-600 ${isPingingWebhook ? 'animate-spin' : ''}`} />
-                  <span>Send Test Ping</span>
+                  <span>Test Connection</span>
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
-                  <label className="block font-bold text-foreground mb-1">Webhook Endpoint URL</label>
+                  <label className="block font-semibold text-foreground mb-1">Webhook URL</label>
                   <input
                     type="text"
                     value={webhookConfig.url}
@@ -1636,11 +1195,11 @@ export function DeltaBusinessHub() {
                       const updated = businessStore.updateWebhookConfig({ url: e.target.value });
                       setWebhookConfig(updated);
                     }}
-                    className="w-full px-3.5 py-2 rounded-xl border border-border bg-background font-mono text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background font-mono text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-foreground mb-1">Verify Token</label>
+                  <label className="block font-semibold text-foreground mb-1">Verify Token</label>
                   <input
                     type="text"
                     value={webhookConfig.verify_token}
@@ -1648,67 +1207,68 @@ export function DeltaBusinessHub() {
                       const updated = businessStore.updateWebhookConfig({ verify_token: e.target.value });
                       setWebhookConfig(updated);
                     }}
-                    className="w-full px-3.5 py-2 rounded-xl border border-border bg-background font-mono text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background font-mono text-xs"
                   />
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-semibold text-foreground">
-                    Webhook Status: Connected & Verified
-                  </span>
-                </div>
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/60 flex items-center justify-between text-xs">
+                <span className="inline-flex items-center gap-2 font-medium text-foreground">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  Status: Connected
+                </span>
                 <span className="text-muted-foreground font-mono text-[11px]">
-                  Last delivery:{' '}
-                  {webhookConfig.last_delivery_at
-                    ? new Date(webhookConfig.last_delivery_at).toLocaleTimeString()
-                    : 'Just now'}
+                  Last Ping: {webhookConfig.last_delivery_at ? new Date(webhookConfig.last_delivery_at).toLocaleTimeString() : 'Verified'}
                 </span>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* ==================== TAB 5: WHATSAPP API SPECS & SDK ==================== */}
-        {activeSubTab === 'docs' && (
-          <div className="space-y-6 animate-fade-in">
+            {/* Quick Code Integration Snippets */}
             <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
-              <h2 className="text-sm font-bold text-foreground">
-                Drop-in Replacement for WhatsApp Business API
-              </h2>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Delta Business uses the exact same JSON schema and headers as the WhatsApp Cloud API.
-                Existing enterprise CRMs, chatbots, and broadcast scripts can switch endpoints to Delta
-                with <strong>zero code changes</strong>.
-              </p>
-            </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Integration Code</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Directly drop into your backend or server
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg">
+                  <button
+                    onClick={() => setCodeTab('curl')}
+                    className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                      codeTab === 'curl' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground'
+                    }`}
+                  >
+                    cURL
+                  </button>
+                  <button
+                    onClick={() => setCodeTab('node')}
+                    className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                      codeTab === 'node' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground'
+                    }`}
+                  >
+                    Node.js
+                  </button>
+                </div>
+              </div>
 
-            {/* Code Snippets */}
-            <div className="space-y-4">
-              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-2">
-                    <FileCode2 className="w-4 h-4 text-delta-600" />
-                    cURL (Send Template Notification)
-                  </span>
+              {codeTab === 'curl' ? (
+                <div className="relative">
                   <button
                     onClick={() =>
                       copyToClipboard(
-                        `curl -X POST https://your-delta-domain.com/api/v1/messages \\\n  -H "Authorization: Bearer dlt_live_9a2f7c01b4e6d38a529f60bc914e" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "messaging_product": "delta",\n    "to": "+919876543210",\n    "type": "template",\n    "template": {\n      "name": "order_dispatched",\n      "language": { "code": "en_US" },\n      "components": [\n        {\n          "type": "body",\n          "parameters": [\n            { "type": "text", "text": "Priya" },\n            { "type": "text", "text": "ORD-54321" },\n            { "type": "text", "text": "6:00 PM" }\n          ]\n        }\n      ]\n    }\n  }'`,
+                        `curl -X POST https://delta-messaging.vercel.app/api/v1/messages \\\n  -H "Authorization: Bearer dlt_live_apex_token" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "messaging_product": "delta",\n    "to": "+919876543210",\n    "type": "template",\n    "template": {\n      "name": "order_dispatched",\n      "language": { "code": "en_US" },\n      "components": [\n        {\n          "type": "body",\n          "parameters": [\n            { "type": "text", "text": "Priya" },\n            { "type": "text", "text": "ORD-54321" },\n            { "type": "text", "text": "6:00 PM" }\n          ]\n        }\n      ]\n    }\n  }'`,
                         'cURL command'
                       )
                     }
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-md bg-card/80 hover:bg-card text-foreground text-xs font-medium flex items-center gap-1 border border-border/70 shadow-2xs"
                   >
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-3 h-3" />
                     <span>Copy</span>
                   </button>
-                </div>
-                <pre className="p-4 rounded-xl bg-muted/60 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
-{`curl -X POST https://your-delta-domain.com/api/v1/messages \\
-  -H "Authorization: Bearer dlt_live_9a2f7c01b4e6d38a529f60bc914e" \\
+                  <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
+{`curl -X POST https://delta-messaging.vercel.app/api/v1/messages \\
+  -H "Authorization: Bearer dlt_live_apex_token" \\
   -H "Content-Type: application/json" \\
   -d '{
     "messaging_product": "delta",
@@ -1729,30 +1289,24 @@ export function DeltaBusinessHub() {
       ]
     }
   }'`}
-                </pre>
-              </div>
-
-              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-2">
-                    <FileCode2 className="w-4 h-4 text-emerald-600" />
-                    Node.js / TypeScript SDK Snippet
-                  </span>
+                  </pre>
+                </div>
+              ) : (
+                <div className="relative">
                   <button
                     onClick={() =>
                       copyToClipboard(
-                        `const response = await fetch('https://your-delta-domain.com/api/v1/messages', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Bearer ' + process.env.DELTA_API_KEY,\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    messaging_product: 'delta',\n    to: '+919876543210',\n    type: 'text',\n    text: { body: 'Your verification OTP is 849201' },\n  }),\n});\nconst result = await response.json();\nconsole.log(result.messages[0].pricing.rate); // '0.00'`,
+                        `const response = await fetch('https://delta-messaging.vercel.app/api/v1/messages', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Bearer ' + process.env.DELTA_API_KEY,\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    messaging_product: 'delta',\n    to: '+919876543210',\n    type: 'text',\n    text: { body: 'Your verification OTP is 849201' },\n  }),\n});\nconst result = await response.json();\nconsole.log(result.messages[0]);`,
                         'Node.js code'
                       )
                     }
-                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-md bg-card/80 hover:bg-card text-foreground text-xs font-medium flex items-center gap-1 border border-border/70 shadow-2xs"
                   >
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-3 h-3" />
                     <span>Copy</span>
                   </button>
-                </div>
-                <pre className="p-4 rounded-xl bg-muted/60 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
-{`const response = await fetch('https://your-delta-domain.com/api/v1/messages', {
+                  <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
+{`const response = await fetch('https://delta-messaging.vercel.app/api/v1/messages', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer ' + process.env.DELTA_API_KEY,
@@ -1766,12 +1320,199 @@ export function DeltaBusinessHub() {
   }),
 });
 const result = await response.json();
-console.log(result.messages[0].pricing.rate); // '0.00' (₹0.00 Meta Fee)`}
-                </pre>
+console.log(result.messages[0]);`}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== 5. AI ASSISTANT ==================== */}
+        {activeSubTab === 'ai' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Persona & Knowledge Base (7 cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-delta-600" />
+                    Agent Settings
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Auto-Reply:</span>
+                    <button
+                      type="button"
+                      onClick={() => setBotAutoPilot(!botAutoPilot)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                        botAutoPilot ? 'bg-delta-600' : 'bg-muted-foreground/30'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                          botAutoPilot ? 'translate-x-4.5' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                      Bot Name
+                    </label>
+                    <input
+                      type="text"
+                      value={botName}
+                      onChange={(e) => setBotName(e.target.value)}
+                      className="w-full bg-background text-foreground text-xs px-3 py-2 rounded-xl border border-border focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground block mb-1">
+                      Tone
+                    </label>
+                    <select
+                      value={botPersona}
+                      onChange={(e) => setBotPersona(e.target.value as any)}
+                      className="w-full bg-background text-foreground text-xs px-3 py-2 rounded-xl border border-border focus:outline-none"
+                    >
+                      <option value="friendly">Friendly & Helpful</option>
+                      <option value="professional">Formal & Direct</option>
+                      <option value="tanglish">Regional / Tanglish</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Knowledge Base FAQs */}
+              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">Knowledge Base FAQs</h3>
+                    <p className="text-xs text-muted-foreground">The bot matches these questions when customers ask for support</p>
+                  </div>
+                  <span className="text-xs font-semibold text-muted-foreground">{knowledgeFaqs.length} FAQs</span>
+                </div>
+
+                <div className="space-y-2">
+                  {knowledgeFaqs.map((faq) => (
+                    <div
+                      key={faq.id}
+                      className="p-3 rounded-xl bg-muted/40 border border-border/60 flex items-start justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-foreground">Q: {faq.question}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">A: {faq.answer}</p>
+                      </div>
+                      <button
+                        onClick={() => setKnowledgeFaqs((prev) => prev.filter((f) => f.id !== faq.id))}
+                        className="text-muted-foreground hover:text-destructive p-1 rounded-lg transition-colors"
+                        title="Delete FAQ"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add FAQ form */}
+                <div className="pt-2 border-t border-border/60 space-y-2">
+                  <p className="text-xs font-semibold text-foreground">+ Add New FAQ</p>
+                  <input
+                    type="text"
+                    placeholder="Question (e.g. Do you deliver to Bangalore?)"
+                    value={newFaqQuestion}
+                    onChange={(e) => setNewFaqQuestion(e.target.value)}
+                    className="w-full bg-background text-foreground text-xs px-3 py-1.5 rounded-lg border border-border focus:outline-none"
+                  />
+                  <textarea
+                    rows={2}
+                    placeholder="Answer"
+                    value={newFaqAnswer}
+                    onChange={(e) => setNewFaqAnswer(e.target.value)}
+                    className="w-full bg-background text-foreground text-xs px-3 py-1.5 rounded-lg border border-border focus:outline-none"
+                  />
+                  <button
+                    onClick={handleAddFaq}
+                    className="px-3.5 py-1.5 rounded-xl bg-delta-600 hover:bg-delta-700 text-white text-xs font-bold transition-all shadow-xs"
+                  >
+                    Save FAQ
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Bot Simulator (5 cols) */}
+            <div className="lg:col-span-5">
+              <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs flex flex-col h-[520px]">
+                <div className="flex items-center justify-between pb-3 border-b border-border/80">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-delta-600/10 text-delta-600 flex items-center justify-center font-bold text-xs">
+                      🤖
+                    </div>
+                    <span className="text-xs font-bold text-foreground">{botName} Simulator</span>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Ready
+                  </span>
+                </div>
+
+                {/* Simulator Messages */}
+                <div className="flex-1 overflow-y-auto py-3 space-y-2 text-xs">
+                  {sandboxMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                          msg.sender === 'user'
+                            ? 'bg-delta-600 text-white rounded-br-xs'
+                            : 'bg-muted/70 text-foreground border border-border/60 rounded-bl-xs'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                      </div>
+                      <span className="text-[9px] text-muted-foreground px-1 mt-0.5">
+                        {msg.time}
+                      </span>
+                    </div>
+                  ))}
+
+                  {isSandboxThinking && (
+                    <div className="text-xs text-muted-foreground italic px-2">
+                      {botName} is typing...
+                    </div>
+                  )}
+                </div>
+
+                {/* Input */}
+                <div className="flex items-center gap-2 pt-2 border-t border-border/80">
+                  <input
+                    type="text"
+                    placeholder="Ask a question..."
+                    value={sandboxInput}
+                    onChange={(e) => setSandboxInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleTestSandbox()}
+                    className="flex-1 bg-background text-foreground text-xs px-3 py-2 rounded-xl border border-border focus:outline-none"
+                  />
+                  <button
+                    onClick={handleTestSandbox}
+                    disabled={isSandboxThinking || !sandboxInput.trim()}
+                    className="px-3 py-2 rounded-xl bg-delta-600 hover:bg-delta-700 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-40"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
+
       </div>
     </div>
   );
