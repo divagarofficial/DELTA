@@ -435,4 +435,231 @@ describe('Delta Business Suite & WhatsApp Cloud API Compatibility Engine', () =>
       expect(data.template.body_text).toContain('{{1}}');
     });
   });
+
+  describe('WhatsApp Drop-In Replacement & Zero-Code-Change Compatibility', () => {
+    const validKey = 'dlt_live_9a2f7c01b4e6d38a529f60bc914e';
+    const testPhoneId = '104829104859102';
+
+    it('handles POST /v19.0/{id}/messages with messaging_product="whatsapp"', async () => {
+      const { POST } = await import('@/app/[version]/[id]/messages/route');
+      const req = new Request(`http://localhost:3000/v19.0/${testPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${validKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: '+919876543210',
+          type: 'text',
+          text: { preview_url: false, body: 'Testing zero-change drop-in' },
+        }),
+      });
+
+      const res = await POST(req as any);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.messaging_product).toBe('whatsapp');
+      expect(data.contacts[0].wa_id).toBe('919876543210');
+      expect(data.messages[0].id).toMatch(/^wamid\./);
+      expect(data.messages[0].pricing.billable).toBe(false);
+      expect(data.messages[0].pricing.rate).toBe('0.00');
+    });
+
+    it('auto-provisions and approves customer templates on-the-fly without 404', async () => {
+      const { POST } = await import('@/app/[version]/[id]/messages/route');
+      const req = new Request(`http://localhost:3000/v19.0/${testPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${validKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: '+919876543210',
+          type: 'template',
+          template: {
+            name: 'unregistered_legacy_client_template',
+            language: { code: 'en_US' },
+            components: [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: 'Rahul' },
+                  { type: 'text', text: 'INV-4091' },
+                ],
+              },
+            ],
+          },
+        }),
+      });
+
+      const res = await POST(req as any);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.messages[0].id).toBeDefined();
+      expect(businessStore.getTemplateByName('unregistered_legacy_client_template')).toBeDefined();
+    });
+
+    it('handles WhatsApp reaction messages (type: "reaction")', async () => {
+      const { POST } = await import('@/app/[version]/[id]/messages/route');
+      const req = new Request(`http://localhost:3000/v19.0/${testPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${validKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: '+919876543210',
+          type: 'reaction',
+          reaction: {
+            message_id: 'wamid.HBgM9198765432101234567890abcdef',
+            emoji: '👍',
+          },
+        }),
+      });
+
+      const res = await POST(req as any);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.messages[0].id).toBeDefined();
+    });
+
+    it('handles WhatsApp mark-as-read status updates without error', async () => {
+      const { POST } = await import('@/app/[version]/[id]/messages/route');
+      const req = new Request(`http://localhost:3000/v19.0/${testPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${validKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          status: 'read',
+          message_id: 'wamid.HBgM9198765432101234567890abcdef',
+        }),
+      });
+
+      const res = await POST(req as any);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.success).toBe(true);
+    });
+
+    it('authenticates using access_token in URL query parameters', async () => {
+      const { POST } = await import('@/app/[version]/[id]/messages/route');
+      const req = new Request(`http://localhost:3000/v19.0/${testPhoneId}/messages?access_token=${validKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: '+919876543210',
+          type: 'text',
+          text: { body: 'Testing URL query parameter token' },
+        }),
+      });
+
+      const res = await POST(req as any);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.messages[0].id).toBeDefined();
+    });
+
+    it('resolves phone number metadata on GET /v19.0/{phone_number_id}', async () => {
+      const { GET } = await import('@/app/[version]/[id]/route');
+      const req = new Request(`http://localhost:3000/v19.0/${testPhoneId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${validKey}` },
+      });
+
+      const res = await GET(req as any, { params: Promise.resolve({ version: 'v19.0', id: testPhoneId }) });
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.code_verification_status).toBe('VERIFIED');
+      expect(data.quality_rating).toBe('GREEN');
+      expect(data.id).toBe(testPhoneId);
+    });
+
+    it('resolves and deletes media on GET & DELETE /v19.0/{media_id}', async () => {
+      const { GET, DELETE } = await import('@/app/[version]/[id]/route');
+      const mediaId = 'media_delta_default';
+
+      const getReq = new Request(`http://localhost:3000/v19.0/${mediaId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${validKey}` },
+      });
+
+      const getRes = await GET(getReq as any, { params: Promise.resolve({ version: 'v19.0', id: mediaId }) });
+      const getData = await getRes.json();
+
+      expect(getRes.status).toBe(200);
+      expect(getData.url).toBeDefined();
+      expect(getData.mime_type).toBe('image/jpeg');
+
+      const delReq = new Request(`http://localhost:3000/v19.0/${mediaId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${validKey}` },
+      });
+
+      const delRes = await DELETE(delReq as any, { params: Promise.resolve({ version: 'v19.0', id: mediaId }) });
+      const delData = await delRes.json();
+
+      expect(delRes.status).toBe(200);
+      expect(delData.success).toBe(true);
+    });
+
+    it('creates templates using Meta official components format', async () => {
+      const { POST, GET } = await import('@/app/[version]/[id]/message_templates/route');
+      const req = new Request(`http://localhost:3000/v19.0/waba_01/message_templates`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${validKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: 'meta_format_seasonal_offer',
+          category: 'MARKETING',
+          language: 'en_US',
+          components: [
+            { type: 'HEADER', format: 'TEXT', text: 'Special Deal for {{1}}' },
+            { type: 'BODY', text: 'Hello {{1}}, claim {{2}}% off today!' },
+            { type: 'FOOTER', text: 'Delta Zero-Charge' },
+            { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Claim Now' }] },
+          ],
+        }),
+      });
+
+      const res = await POST(req as any);
+      const data = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(data.status).toBe('APPROVED');
+
+      // Verify GET returns official components structure
+      const listReq = new Request(`http://localhost:3000/v19.0/waba_01/message_templates?name=meta_format_seasonal_offer`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${validKey}` },
+      });
+
+      const listRes = await GET(listReq as any);
+      const listData = await listRes.json();
+
+      const created = listData.data.find((t: any) => t.name === 'meta_format_seasonal_offer');
+      expect(created).toBeDefined();
+      expect(created.components).toBeDefined();
+      expect(created.components.some((c: any) => c.type === 'BODY')).toBe(true);
+      expect(created.components.some((c: any) => c.type === 'HEADER')).toBe(true);
+    });
+  });
 });

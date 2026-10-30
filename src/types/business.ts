@@ -70,6 +70,7 @@ export interface ZeroCostLedgerEntry {
   saved_amount: number;       // e.g. 0.8631
   currency: string;           // "INR" or "USD"
   status: 'delivered' | 'sent' | 'read';
+  message_id?: string;
 }
 
 export interface InteractiveButtonComponent {
@@ -112,13 +113,22 @@ export interface InteractiveMessagePayload {
 }
 
 export interface WhatsAppCompatibleSendMessageRequest {
-  messaging_product: 'delta' | 'whatsapp';
+  messaging_product?: 'delta' | 'whatsapp' | string;
   recipient_type?: 'individual';
-  to: string; // phone number (e.g. +919876543210) or user identifier
-  type: 'text' | 'template' | 'interactive' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'contacts';
+  to?: string; // phone number (e.g. +919876543210) or user identifier (optional for status='read')
+  status?: 'read';
+  message_id?: string;
+  context?: {
+    message_id: string;
+  };
+  type?: 'text' | 'template' | 'interactive' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'contacts' | 'reaction';
   text?: {
     body: string;
     preview_url?: boolean;
+  };
+  reaction?: {
+    message_id: string;
+    emoji: string;
   };
   template?: {
     name: string;

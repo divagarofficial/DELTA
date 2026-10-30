@@ -84,7 +84,7 @@ export function DeltaBusinessHub() {
   const [isPingingWebhook, setIsPingingWebhook] = useState(false);
 
   // Code snippet language tab
-  const [codeTab, setCodeTab] = useState<'curl' | 'node'>('curl');
+  const [codeTab, setCodeTab] = useState<'curl' | 'node' | 'python' | 'php'>('curl');
 
   // AI Agent Studio state
   const [botName, setBotName] = useState('Delta Concierge');
@@ -1223,41 +1223,107 @@ export function DeltaBusinessHub() {
               </div>
             </div>
 
+            {/* WhatsApp Drop-in Migration Architecture Card */}
+            <div className="p-5 rounded-2xl bg-linear-to-br from-emerald-500/10 via-card to-delta-500/10 border border-emerald-500/30 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+                      WhatsApp Cloud API 100% Drop-In Swap
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
+                        Zero Code Changes
+                      </span>
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      Migrate existing customer integrations by changing only the domain and API token.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visual Diff Box */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-red-500/5 border border-red-500/20 space-y-1.5">
+                  <p className="font-semibold text-red-600 dark:text-red-400 flex items-center justify-between">
+                    <span>Meta WhatsApp Cloud API</span>
+                    <span className="text-[10px] font-mono line-through">₹0.86 / msg</span>
+                  </p>
+                  <p className="font-mono text-[11px] text-muted-foreground break-all">
+                    https://graph.facebook.com/v19.0/{'{PHONE_NUMBER_ID}'}/messages
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Authorization: Bearer <span className="font-mono text-red-500">EAABw...</span>
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1.5">
+                  <p className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+                    <span>Delta Business API (Drop-in)</span>
+                    <span className="text-[10px] font-mono font-bold text-emerald-500">₹0.00 / Free</span>
+                  </p>
+                  <p className="font-mono text-[11px] text-foreground font-semibold break-all">
+                    https://delta-messaging.vercel.app/v19.0/{'{PHONE_NUMBER_ID}'}/messages
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Authorization: Bearer <span className="font-mono text-emerald-600 font-semibold">{apiKeys[0]?.hint || 'dlt_live_...'}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Migration Checklist Badges */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+                <div className="p-2 rounded-lg bg-card/80 border border-border flex items-center gap-1.5 text-foreground">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Same Payload Format</span>
+                </div>
+                <div className="p-2 rounded-lg bg-card/80 border border-border flex items-center gap-1.5 text-foreground">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Same Response Schema</span>
+                </div>
+                <div className="p-2 rounded-lg bg-card/80 border border-border flex items-center gap-1.5 text-foreground">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Auto Template Approval</span>
+                </div>
+                <div className="p-2 rounded-lg bg-card/80 border border-border flex items-center gap-1.5 text-foreground">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Same Webhook Payload</span>
+                </div>
+              </div>
+            </div>
+
             {/* Quick Code Integration Snippets */}
             <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-bold text-foreground">Integration Code</h2>
+                  <h2 className="text-sm font-bold text-foreground">Drop-In Integration Code</h2>
                   <p className="text-xs text-muted-foreground">
-                    Directly drop into your backend or server
+                    Copy and run in your existing WhatsApp backend — keep your existing message JSON
                   </p>
                 </div>
                 <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg">
-                  <button
-                    onClick={() => setCodeTab('curl')}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${
-                      codeTab === 'curl' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground'
-                    }`}
-                  >
-                    cURL
-                  </button>
-                  <button
-                    onClick={() => setCodeTab('node')}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold transition-all ${
-                      codeTab === 'node' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground'
-                    }`}
-                  >
-                    Node.js
-                  </button>
+                  {(['curl', 'node', 'python', 'php'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setCodeTab(tab)}
+                      className={`px-2.5 py-1 rounded text-xs font-semibold capitalize transition-all ${
+                        codeTab === tab ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {tab === 'node' ? 'Node.js' : tab === 'curl' ? 'cURL' : tab === 'python' ? 'Python' : 'PHP'}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {codeTab === 'curl' ? (
+              {codeTab === 'curl' && (
                 <div className="relative">
                   <button
                     onClick={() =>
                       copyToClipboard(
-                        `curl -X POST https://delta-messaging.vercel.app/api/v1/messages \\\n  -H "Authorization: Bearer dlt_live_apex_token" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "messaging_product": "delta",\n    "to": "+919876543210",\n    "type": "template",\n    "template": {\n      "name": "order_dispatched",\n      "language": { "code": "en_US" },\n      "components": [\n        {\n          "type": "body",\n          "parameters": [\n            { "type": "text", "text": "Priya" },\n            { "type": "text", "text": "ORD-54321" },\n            { "type": "text", "text": "6:00 PM" }\n          ]\n        }\n      ]\n    }\n  }'`,
+                        `curl -X POST https://delta-messaging.vercel.app/v19.0/104829104859102/messages \\\n  -H "Authorization: Bearer ${apiKeys[0]?.key || 'dlt_live_apex_token'}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "messaging_product": "whatsapp",\n    "recipient_type": "individual",\n    "to": "+919876543210",\n    "type": "template",\n    "template": {\n      "name": "order_dispatched",\n      "language": { "code": "en_US" },\n      "components": [\n        {\n          "type": "body",\n          "parameters": [\n            { "type": "text", "text": "Priya" },\n            { "type": "text", "text": "ORD-54321" },\n            { "type": "text", "text": "6:00 PM" }\n          ]\n        }\n      ]\n    }\n  }'`,
                         'cURL command'
                       )
                     }
@@ -1267,11 +1333,13 @@ export function DeltaBusinessHub() {
                     <span>Copy</span>
                   </button>
                   <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
-{`curl -X POST https://delta-messaging.vercel.app/api/v1/messages \\
-  -H "Authorization: Bearer dlt_live_apex_token" \\
+{`# 100% WhatsApp Cloud API Compatible cURL
+curl -X POST https://delta-messaging.vercel.app/v19.0/104829104859102/messages \\
+  -H "Authorization: Bearer ${apiKeys[0]?.key || 'dlt_live_apex_token'}" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "messaging_product": "delta",
+    "messaging_product": "whatsapp",
+    "recipient_type": "individual",
     "to": "+919876543210",
     "type": "template",
     "template": {
@@ -1291,12 +1359,35 @@ export function DeltaBusinessHub() {
   }'`}
                   </pre>
                 </div>
-              ) : (
+              )}
+
+              {codeTab === 'node' && (
                 <div className="relative">
                   <button
                     onClick={() =>
                       copyToClipboard(
-                        `const response = await fetch('https://delta-messaging.vercel.app/api/v1/messages', {\n  method: 'POST',\n  headers: {\n    'Authorization': 'Bearer ' + process.env.DELTA_API_KEY,\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    messaging_product: 'delta',\n    to: '+919876543210',\n    type: 'text',\n    text: { body: 'Your verification OTP is 849201' },\n  }),\n});\nconst result = await response.json();\nconsole.log(result.messages[0]);`,
+                        `// Node.js: Just swap BASE_URL and ACCESS_TOKEN
+const BASE_URL = 'https://delta-messaging.vercel.app/v19.0';
+const PHONE_NUMBER_ID = '104829104859102';
+const TOKEN = process.env.DELTA_API_KEY || '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
+
+const response = await fetch(\`\${BASE_URL}/\${PHONE_NUMBER_ID}/messages\`, {
+  method: 'POST',
+  headers: {
+    'Authorization': \`Bearer \${TOKEN}\`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    messaging_product: 'whatsapp',
+    to: '+919876543210',
+    type: 'text',
+    text: { body: 'Hello from Delta Business! Zero fees applied.' },
+  }),
+});
+
+const result = await response.json();
+console.log('WhatsApp-compatible response:', result);
+console.log('Message ID:', result.messages[0].id);`,
                         'Node.js code'
                       )
                     }
@@ -1306,21 +1397,194 @@ export function DeltaBusinessHub() {
                     <span>Copy</span>
                   </button>
                   <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
-{`const response = await fetch('https://delta-messaging.vercel.app/api/v1/messages', {
+{`// Node.js: Just swap BASE_URL and ACCESS_TOKEN
+const BASE_URL = 'https://delta-messaging.vercel.app/v19.0';
+const PHONE_NUMBER_ID = '104829104859102';
+const TOKEN = process.env.DELTA_API_KEY || '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
+
+const response = await fetch(\`\${BASE_URL}/\${PHONE_NUMBER_ID}/messages\`, {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer ' + process.env.DELTA_API_KEY,
+    'Authorization': \`Bearer \${TOKEN}\`,
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    messaging_product: 'delta',
+    messaging_product: 'whatsapp',
     to: '+919876543210',
     type: 'text',
-    text: { body: 'Your verification OTP is 849201' },
+    text: { body: 'Hello from Delta Business! Zero fees applied.' },
   }),
 });
+
 const result = await response.json();
-console.log(result.messages[0]);`}
+console.log('WhatsApp-compatible response:', result);
+console.log('Message ID:', result.messages[0].id);`}
+                  </pre>
+                </div>
+              )}
+
+              {codeTab === 'python' && (
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        `# Python requests: Just swap URL & Token
+import os
+import requests
+
+DELTA_BASE_URL = "https://delta-messaging.vercel.app/v19.0"
+PHONE_NUMBER_ID = "104829104859102"
+DELTA_API_KEY = os.getenv("DELTA_API_KEY", "${apiKeys[0]?.key || 'dlt_live_apex_token'}")
+
+url = f"{DELTA_BASE_URL}/{PHONE_NUMBER_ID}/messages"
+headers = {
+    "Authorization": f"Bearer {DELTA_API_KEY}",
+    "Content-Type": "application/json"
+}
+payload = {
+    "messaging_product": "whatsapp",
+    "to": "+919876543210",
+    "type": "template",
+    "template": {
+        "name": "order_dispatched",
+        "language": {"code": "en_US"},
+        "components": [
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": "Priya"},
+                    {"type": "text", "text": "ORD-54321"},
+                    {"type": "text", "text": "6:00 PM"}
+                ]
+            }
+        ]
+    }
+}
+
+response = requests.post(url, json=payload, headers=headers)
+data = response.json()
+print("Message accepted:", data["messages"][0]["id"])
+print("Savings vs WhatsApp:", data["messages"][0]["pricing"]["saved_vs_whatsapp"])`,
+                        'Python code'
+                      )
+                    }
+                    className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-md bg-card/80 hover:bg-card text-foreground text-xs font-medium flex items-center gap-1 border border-border/70 shadow-2xs"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy</span>
+                  </button>
+                  <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
+{`# Python requests: Just swap URL & Token
+import os
+import requests
+
+DELTA_BASE_URL = "https://delta-messaging.vercel.app/v19.0"
+PHONE_NUMBER_ID = "104829104859102"
+DELTA_API_KEY = os.getenv("DELTA_API_KEY", "${apiKeys[0]?.key || 'dlt_live_apex_token'}")
+
+url = f"{DELTA_BASE_URL}/{PHONE_NUMBER_ID}/messages"
+headers = {
+    "Authorization": f"Bearer {DELTA_API_KEY}",
+    "Content-Type": "application/json"
+}
+payload = {
+    "messaging_product": "whatsapp",
+    "to": "+919876543210",
+    "type": "template",
+    "template": {
+        "name": "order_dispatched",
+        "language": {"code": "en_US"},
+        "components": [
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": "Priya"},
+                    {"type": "text", "text": "ORD-54321"},
+                    {"type": "text", "text": "6:00 PM"}
+                ]
+            }
+        ]
+    }
+}
+
+response = requests.post(url, json=payload, headers=headers)
+data = response.json()
+print("Message accepted:", data["messages"][0]["id"])
+print("Savings vs WhatsApp:", data["messages"][0]["pricing"]["saved_vs_whatsapp"])`}
+                  </pre>
+                </div>
+              )}
+
+              {codeTab === 'php' && (
+                <div className="relative">
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        `<?php
+// PHP cURL: Just swap the endpoint URL and Bearer token
+$phoneNumberId = '104829104859102';
+$token = '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
+$url = "https://delta-messaging.vercel.app/v19.0/{$phoneNumberId}/messages";
+
+$payload = [
+    'messaging_product' => 'whatsapp',
+    'to' => '+919876543210',
+    'type' => 'text',
+    'text' => ['body' => 'Your OTP is 749201. Powered by Delta Zero-Charge API.']
+];
+
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    "Authorization: Bearer {$token}",
+    "Content-Type: application/json"
+]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$result = json_decode($response, true);
+echo "Message ID: " . $result['messages'][0]['id'];
+?>`,
+                        'PHP code'
+                      )
+                    }
+                    className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-md bg-card/80 hover:bg-card text-foreground text-xs font-medium flex items-center gap-1 border border-border/70 shadow-2xs"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy</span>
+                  </button>
+                  <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
+{`<?php
+// PHP cURL: Just swap the endpoint URL and Bearer token
+$phoneNumberId = '104829104859102';
+$token = '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
+$url = "https://delta-messaging.vercel.app/v19.0/{$phoneNumberId}/messages";
+
+$payload = [
+    'messaging_product' => 'whatsapp',
+    'to' => '+919876543210',
+    'type' => 'text',
+    'text' => ['body' => 'Your OTP is 749201. Powered by Delta Zero-Charge API.']
+];
+
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    "Authorization: Bearer {$token}",
+    "Content-Type: application/json"
+]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$result = json_decode($response, true);
+echo "Message ID: " . $result['messages'][0]['id'];
+?>`}
                   </pre>
                 </div>
               )}

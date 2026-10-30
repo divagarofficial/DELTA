@@ -74,3 +74,103 @@ export function renderTemplate(
     buttons: renderedButtons,
   };
 }
+
+/**
+ * Dynamically synthesizes and auto-provisions a BusinessTemplate on-the-fly
+ * when a customer migrates existing WhatsApp templates that haven't been pre-configured.
+ * Prevents 404 template rejection and provides zero-code-change drop-in migration.
+ */
+export function synthesizeTemplateFromComponents(
+  templateName: string,
+  components?: TemplateComponentInput[],
+  language: string = 'en_US'
+): BusinessTemplate {
+  let headerContent: string | undefined;
+  let headerType: 'TEXT' | 'IMAGE' | 'DOCUMENT' | 'VIDEO' | 'NONE' = 'NONE';
+  let bodyPlaceholders: string[] = [];
+  let buttons: TemplateButton[] = [];
+
+  if (components && components.length > 0) {
+    for (const comp of components) {
+      if (comp.type === 'header' && comp.parameters) {
+        const hasImg = comp.parameters.some((p) => p.type === 'image');
+        if (hasImg) {
+          headerType = 'IMAGE';
+        } else {
+          headerType = 'TEXT';
+          headerContent = comp.parameters.map((_, i) => `{{${i + 1}}}`).join(' ');
+        }
+      } else if (comp.type === 'body' && comp.parameters) {
+        bodyPlaceholders = comp.parameters.map((_, i) => `{{${i + 1}}}`);
+      } else if (comp.type === 'button') {
+        buttons.push({
+          type: comp.sub_type === 'url' ? 'URL' : 'QUICK_REPLY',
+          text: 'Action',
+          url: comp.sub_type === 'url' ? 'https://delta.chat' : undefined,
+        });
+      }
+    }
+  }
+
+  const cleanName = templateName.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
+  const bodyText =
+    bodyPlaceholders.length > 0
+      ? bodyPlaceholders.join(' • ')
+      : `Notification from ${templateName.replace(/_/g, ' ')}`;
+
+  return {
+    id: `tmpl-dyn-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    name: cleanName,
+    category: 'UTILITY',
+    language,
+    status: 'APPROVED',
+    header_type: headerType,
+    header_content: headerContent,
+    body_text: bodyText,
+    footer_text: 'Delta Business Notification',
+    buttons: buttons.length > 0 ? buttons : undefined,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Converts a Delta BusinessTemplate into the official Meta WhatsApp Cloud API components format.
+ */
+export function toWhatsAppComponents(template: BusinessTemplate) {
+  const components: any[] = [];
+
+  if (template.header_content || template.header_type !== 'NONE') {
+    components.push({
+      type: 'HEADER',
+      format: template.header_type || 'TEXT',
+      text: template.header_content || undefined,
+    });
+  }
+
+  components.push({
+    type: 'BODY',
+    text: template.body_text,
+  });
+
+  if (template.footer_text) {
+    components.push({
+      type: 'FOOTER',
+      text: template.footer_text,
+    });
+  }
+
+  if (template.buttons && template.buttons.length > 0) {
+    components.push({
+      type: 'BUTTONS',
+      buttons: template.buttons.map((b) => ({
+        type: b.type,
+        text: b.text,
+        url: b.url,
+        phone_number: b.phone_number,
+      })),
+    });
+  }
+
+  return components;
+}

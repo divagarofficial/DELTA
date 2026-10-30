@@ -4,7 +4,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Handle CORS for API routes when deployed as separate backend (e.g. Google Cloud Run)
-  if (pathname.startsWith('/api') || pathname.match(/^\/v\d+\.\d+\//)) {
+  if (pathname.startsWith('/api') || pathname.match(/^\/v\d+\.\d+/)) {
     const origin = request.headers.get('origin') || '*';
 
     // Handle HTTP OPTIONS preflight
@@ -42,5 +42,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/:version/:id/:path*', '/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/api/:path*', '/:version/:id', '/:version/:id/:path*', '/((?!_next/static|_next/image|favicon.ico).*)'],
 };

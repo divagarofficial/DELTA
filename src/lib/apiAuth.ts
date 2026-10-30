@@ -27,8 +27,16 @@ export function authenticateApiRequest(
   req: NextRequest,
   requiredScopes: string[] = ['ai:generate']
 ): { success: true; client: AuthenticatedClient } | { success: false; response: NextResponse } {
-  const authHeader = req.headers.get('authorization') || '';
-  const apiKey = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const authHeader = req.headers.get('authorization') || req.headers.get('x-api-key') || '';
+  let apiKey = authHeader.replace(/^(Bearer|OAuth)\s+/i, '').trim();
+
+  // Also support access_token or api_key in URL query parameters (standard in Meta Graph API SDKs)
+  if (!apiKey) {
+    try {
+      const url = new URL(req.url);
+      apiKey = url.searchParams.get('access_token') || url.searchParams.get('api_key') || '';
+    } catch (e) {}
+  }
 
   if (!apiKey) {
     return {
@@ -36,7 +44,7 @@ export function authenticateApiRequest(
       response: NextResponse.json(
         {
           error: {
-            message: 'Missing API key. Provide "Authorization: Bearer dlt_live_..." header.',
+            message: 'Missing API key or access token. Provide "Authorization: Bearer <token>" header or "access_token" query parameter.',
             type: 'OAuthException',
             code: 190,
             fbtrace_id: `trace_${Date.now()}`,

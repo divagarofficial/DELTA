@@ -432,7 +432,13 @@ class BusinessStore {
 
   public validateApiKey(providedKey: string): boolean {
     if (!providedKey) return false;
-    const cleanKey = providedKey.replace('Bearer ', '').trim();
+    const cleanKey = providedKey.replace(/^(Bearer|OAuth)\s+/i, '').trim();
+
+    // Check environment variable if configured
+    if (process.env.DELTA_API_KEY && cleanKey === process.env.DELTA_API_KEY) {
+      return true;
+    }
+
     return this.apiKeys.some((k) => k.key === cleanKey && k.is_active);
   }
 
@@ -482,6 +488,7 @@ class BusinessStore {
       saved_amount: savings.saved,
       currency,
       status: 'delivered',
+      message_id: params.message_id,
     };
 
     this.ledger.unshift(entry);
@@ -507,6 +514,18 @@ class BusinessStore {
     } catch (e) {}
 
     return entry;
+  }
+
+  public updateLedgerStatus(messageIdOrLedgerId: string, status: 'delivered' | 'sent' | 'read'): boolean {
+    const entry = this.ledger.find(
+      (e) => e.message_id === messageIdOrLedgerId || e.id === messageIdOrLedgerId
+    );
+    if (entry) {
+      entry.status = status;
+      this.saveToStorage();
+      return true;
+    }
+    return false;
   }
 
   public getLedger(): ZeroCostLedgerEntry[] {

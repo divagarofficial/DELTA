@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/apiAuth';
 import { businessStore } from '@/lib/business/businessStore';
-import { renderTemplate } from '@/lib/business/templateEngine';
+import { renderTemplate, synthesizeTemplateFromComponents } from '@/lib/business/templateEngine';
 import { calculateMessageSavings } from '@/lib/business/costLedger';
 import { notifyMessageStatusWebhook } from '@/lib/business/webhookDispatcher';
 import { BusinessCategory, WhatsAppCompatibleSendMessageRequest } from '@/types/business';
@@ -15,6 +15,15 @@ export async function POST(req: NextRequest) {
     }
 
     const body: WhatsAppCompatibleSendMessageRequest = await req.json();
+
+    // Support WhatsApp Cloud API status updates (e.g. marking inbound message as read)
+    if (body.status === 'read') {
+      const msgId = body.message_id || (body as any).id;
+      if (msgId) {
+        businessStore.updateLedgerStatus(msgId, 'read');
+      }
+      return NextResponse.json({ success: true }, { status: 200 });
+    }
 
     if (!body.to) {
       return NextResponse.json(
@@ -38,18 +47,17 @@ export async function POST(req: NextRequest) {
     // Handle each WhatsApp message type with full fidelity
     if (messageType === 'template') {
       const templateName = body.template?.name || '';
-      const template = businessStore.getTemplateByName(templateName);
+      let template = businessStore.getTemplateByName(templateName);
 
+      // Auto-provision template dynamically if not pre-registered on Delta
+      // This guarantees existing WhatsApp customer code works with 0 manual configuration
       if (!template) {
-        return NextResponse.json(
-          {
-            error: {
-              message: `Template "${templateName}" not found or not approved in Delta Business Suite.`,
-              type: 'DeltaTemplateException',
-              code: 132000,
-            },
-          },
-          { status: 404 }
+        template = businessStore.addTemplate(
+          synthesizeTemplateFromComponents(
+            templateName || 'custom_notification',
+            body.template?.components as any,
+            body.template?.language?.code || 'en_US'
+          )
         );
       }
 
@@ -155,6 +163,15 @@ export async function POST(req: NextRequest) {
     } else if (messageType === 'contacts') {
       content = `👤 Contact Card: ${body.contacts?.[0]?.name?.formatted_name || 'Shared Contact'}`;
       category = 'UTILITY';
+    } else if (messageType === 'reaction') {
+      content = body.reaction?.emoji || '👍';
+      category = 'SERVICE';
+      interactiveMeta = {
+        reaction: {
+          message_id: body.reaction?.message_id,
+          emoji: body.reaction?.emoji,
+        },
+      };
     } else {
       content = `[${String(messageType).toUpperCase()} message]`;
       category = 'UTILITY';
