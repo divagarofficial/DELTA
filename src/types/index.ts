@@ -154,6 +154,17 @@ export interface Message {
   status?: ReceiptStatus; // Sender's perspective: sent, delivered, read
   is_optimistic?: boolean;
   has_failed?: boolean;
+  is_satellite?: boolean;
+  satellite_meta?: SatelliteTelemetry | null;
+}
+
+export interface SatelliteTelemetry {
+  satellite_id: string;
+  constellation: string;
+  elevation_deg: number;
+  azimuth_deg: number;
+  signal_quality: 'optimal' | 'good' | 'weak' | 'searching';
+  latency_ms: number;
 }
 
 export interface DeltaStatus {
@@ -214,3 +225,5 @@ export interface CallSession {
   caller?: Profile;
   receiver?: Profile;
 }
+
+export * from './business';

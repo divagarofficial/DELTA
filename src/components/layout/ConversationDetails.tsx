@@ -30,7 +30,7 @@ interface ConversationDetailsProps {
 }
 
 export function ConversationDetails({ onClose }: ConversationDetailsProps) {
-  const { activeConversation, startCall, toggleMuteConversation } = useMessaging();
+  const { activeConversation, startCall, toggleMuteConversation, messages } = useMessaging();
   const { currentUser, availableDemoUsers } = useAuth();
   const [disappearingDuration, setDisappearingDuration] = useState('0');
   const [isBlocked, setIsBlocked] = useState(false);
@@ -40,6 +40,10 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
   const [showSecurityCodeModal, setShowSecurityCodeModal] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  const sharedAttachments = (messages || []).flatMap((m) => m.attachments || []);
+  const sharedImages = sharedAttachments.filter((a) => a.mime_type.startsWith('image/'));
+  const sharedDocs = sharedAttachments.filter((a) => !a.mime_type.startsWith('image/') && !a.mime_type.startsWith('audio/'));
 
   if (!activeConversation) return null;
 
@@ -71,15 +75,15 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
   };
 
   return (
-    <aside className="w-full sm:w-[320px] lg:w-[360px] shrink-0 border-l border-border bg-card flex flex-col h-full overflow-y-auto select-none z-20">
+    <aside className="w-full sm:w-[320px] lg:w-[360px] shrink-0 border-l border-border/80 bg-card/90 backdrop-blur-xl flex flex-col h-full overflow-y-auto select-none z-20 shadow-xs animate-fade-in">
       {/* Header */}
-      <div className="p-3.5 border-b border-border flex items-center justify-between">
-        <h3 className="font-bold text-sm text-foreground">
+      <div className="p-4 border-b border-border/80 flex items-center justify-between">
+        <h3 className="font-extrabold text-sm text-foreground">
           {isGroup ? 'Group Information' : 'Contact Details'}
         </h3>
         <button
           onClick={onClose}
-          className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+          className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Close details"
         >
           <X className="w-4 h-4" />
@@ -87,8 +91,8 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
       </div>
 
       {/* Profile Overview */}
-      <div className="p-5 flex flex-col items-center text-center border-b border-border bg-surface-subtle/50 dark:bg-surface-dark/50">
-        <div className="w-24 h-24 rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-2xl text-foreground mb-3 ring-4 ring-border/50">
+      <div className="p-6 flex flex-col items-center text-center border-b border-border/80 bg-muted/20">
+        <div className="w-24 h-24 rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-2xl text-foreground mb-3.5 ring-4 ring-border/80 shadow-md">
           {activeConversation.avatar_url ? (
             <img
               src={activeConversation.avatar_url}
@@ -152,6 +156,37 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
             activeConversation.description ||
             'Delta communication space. Everything connects.'}
         </p>
+      </div>
+
+      {/* Shared Media, Links & Docs */}
+      <div className="p-4 border-b border-border space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-foreground font-bold text-xs">
+            <ImageIcon className="w-4 h-4 text-sky-500" />
+            <span>Shared Media & Docs</span>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+            {sharedImages.length + sharedDocs.length} items
+          </span>
+        </div>
+
+        {sharedImages.length > 0 ? (
+          <div className="grid grid-cols-3 gap-1.5 pt-1">
+            {sharedImages.slice(0, 6).map((img, i) => (
+              <a
+                key={i}
+                href={img.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="aspect-square rounded-xl overflow-hidden bg-muted border border-border/60 hover:opacity-90 transition-opacity"
+              >
+                <img src={img.file_url} alt="" className="w-full h-full object-cover" />
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[11px] text-muted-foreground italic">No photos or media shared yet</p>
+        )}
       </div>
 
       {/* Disappearing Messages Setting */}

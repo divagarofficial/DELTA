@@ -7,7 +7,7 @@ import {
   normalizePhoneNumber,
   isValidPhoneNumber,
 } from '@/lib/utils';
-import { ConversationMember, Message } from '@/types';
+import { ConversationMember, Message, Profile } from '@/types';
 
 describe('Delta Messaging Utilities & Business Rules', () => {
   describe('formatLastSeen Privacy Enforcement', () => {
@@ -252,5 +252,33 @@ describe('Delta Messaging Utilities & Business Rules', () => {
       };
       expect(resolveRecipient(convVikram, 'u-aarav').display_name).toBe('Vikram Malhotra');
     });
+
+    it('attaches 3GPP Rel-17 NTN satellite telemetry when satellite mode is enabled', () => {
+      const satelliteMsg: Message = {
+        id: 'msg-sat-101',
+        conversation_id: 'conv-priya',
+        sender_id: 'u-aarav',
+        content: 'Transmitting from mid-Atlantic without ground cellular coverage',
+        type: 'text',
+        created_at: new Date().toISOString(),
+        status: 'sent',
+        is_satellite: true,
+        satellite_meta: {
+          satellite_id: 'STARLINK-V2M-3841',
+          constellation: 'Direct-to-Cell LEO (3GPP Rel-17 NTN)',
+          elevation_deg: 54.2,
+          azimuth_deg: 218.4,
+          signal_quality: 'optimal',
+          latency_ms: 780,
+        },
+      };
+
+      expect(satelliteMsg.is_satellite).toBe(true);
+      expect(satelliteMsg.satellite_meta?.satellite_id).toBe('STARLINK-V2M-3841');
+      expect(satelliteMsg.satellite_meta?.constellation).toContain('Direct-to-Cell');
+      expect(satelliteMsg.satellite_meta?.latency_ms).toBeGreaterThan(500);
+      expect(satelliteMsg.satellite_meta?.signal_quality).toBe('optimal');
+    });
   });
 });
+

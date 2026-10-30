@@ -133,6 +133,81 @@ class CallAudioSynthesizer {
       // Audio fallback
     }
   }
+
+  /**
+   * Plays a subtle, tactile pop sound when a message is sent
+   */
+  public playMessageSentTone() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
+
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.09);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.1);
+    } catch {}
+  }
+
+  /**
+   * Plays a gentle two-tone chime when a message is received
+   */
+  public playMessageReceivedTone() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.05);
+
+      gain.gain.setValueAtTime(0.03, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.14);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.16);
+    } catch {}
+  }
+
+  /**
+   * Plays a celestial uplink tone when a packet is beamed directly to an orbital satellite
+   */
+  public playSatelliteUplinkTone() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const freqs = [659.25, 880, 1174.66, 1760]; // E5, A5, D6, A6 cosmic arpeggio
+      freqs.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.06);
+
+        gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.06);
+        gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + idx * 0.06 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + idx * 0.06 + 0.35);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(ctx.currentTime + idx * 0.06);
+        osc.stop(ctx.currentTime + idx * 0.06 + 0.4);
+      });
+    } catch {}
+  }
 }
 
 export const callAudio = new CallAudioSynthesizer();

@@ -103,3 +103,17 @@ export function isValidPhoneNumber(phone: string): boolean {
   const digitsOnly = phone.replace(/\D/g, '');
   return digitsOnly.length >= 10 && digitsOnly.length <= 15;
 }
+
+export function formatMessageDateSeparator(dateString: string): string {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return format(date, 'MMMM d, yyyy');
+  } catch {
+    return '';
+  }
+}
+

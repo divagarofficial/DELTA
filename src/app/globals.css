@@ -1,27 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 40 20% 98%;
-    --foreground: 222 47% 11%;
+    --background: 240 10% 98%;
+    --foreground: 224 45% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 224 45% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 224 45% 12%;
 
     --primary: 262 83% 58%;
     --primary-hover: 263 70% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 45% 12%;
 
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 12% 46%;
 
     --accent: 262 83% 96%;
     --accent-foreground: 262 83% 40%;
@@ -29,49 +31,51 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
     --ring: 262 83% 58%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
     --bubble-incoming: 0 0% 100%;
-    --bubble-incoming-fg: 222 47% 11%;
+    --bubble-incoming-fg: 224 45% 12%;
     --bubble-outgoing: 262 83% 58%;
     --bubble-outgoing-fg: 0 0% 100%;
   }
 
+  :root.dark,
+  html.dark,
   .dark {
-    --background: 224 24% 10%;
+    --background: 224 28% 7%;
     --foreground: 210 40% 98%;
 
-    --card: 223 20% 14%;
+    --card: 224 24% 11%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 223 20% 14%;
+    --popover: 224 24% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 263 70% 65%;
-    --primary-hover: 263 70% 70%;
+    --primary: 263 80% 64%;
+    --primary-hover: 263 80% 70%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 18% 18%;
+    --secondary: 222 18% 16%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 222 18% 18%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 222 18% 15%;
+    --muted-foreground: 217 15% 65%;
 
-    --accent: 263 50% 20%;
+    --accent: 263 50% 18%;
     --accent-foreground: 263 80% 90%;
 
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 263 70% 65%;
+    --border: 224 16% 18%;
+    --input: 224 16% 18%;
+    --ring: 263 80% 64%;
 
-    --bubble-incoming: 223 20% 16%;
+    --bubble-incoming: 224 22% 14%;
     --bubble-incoming-fg: 210 40% 98%;
     --bubble-outgoing: 262 83% 58%;
     --bubble-outgoing-fg: 0 0% 100%;
@@ -84,14 +88,15 @@
   }
   body {
     @apply bg-background text-foreground antialiased selection:bg-delta-500/20 selection:text-delta-600;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
 /* Custom scrollbar for modern chat interface */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -99,23 +104,162 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.25);
+  background: hsl(var(--muted-foreground) / 0.2);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.45);
+  background: hsl(var(--muted-foreground) / 0.4);
 }
 
-/* Clean glassmorphism utility */
+/* Luxury Chat Wallpaper Canvas Pattern (vastly superior to WhatsApp doodle) */
+.chat-canvas-bg {
+  background-color: hsl(var(--background));
+  background-image: 
+    radial-gradient(at 0% 0%, hsl(var(--primary) / 0.04) 0px, transparent 40%),
+    radial-gradient(at 100% 100%, hsl(var(--primary) / 0.03) 0px, transparent 50%),
+    radial-gradient(circle, hsl(var(--foreground) / 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 28px 28px;
+}
+
+.dark .chat-canvas-bg {
+  background-color: hsl(var(--background));
+  background-image: 
+    radial-gradient(at 0% 0%, hsl(var(--primary) / 0.08) 0px, transparent 45%),
+    radial-gradient(at 100% 100%, hsl(280 80% 50% / 0.05) 0px, transparent 55%),
+    radial-gradient(circle, hsl(var(--foreground) / 0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 28px 28px;
+}
+
+/* Clean glassmorphism utilities */
 .glass-panel {
   background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .dark .glass-panel {
-  background: rgba(22, 27, 38, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(18, 22, 33, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-dock {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.dark .glass-dock {
+  background: rgba(20, 25, 38, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Outgoing message bubble: radiant gradient with inner highlight */
+.bubble-outgoing-gradient {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 60%, #5b21b6 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px -2px rgba(109, 40, 217, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+.dark .bubble-outgoing-gradient {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 65%, #6d28d9 100%);
+  color: #ffffff;
+  box-shadow: 0 3px 12px -2px rgba(124, 58, 237, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Incoming message bubble: crisp card with soft boundary */
+.bubble-incoming-card {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border) / 0.85);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+}
+
+.dark .bubble-incoming-card {
+  background: #151a24;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Animations */
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-message-in {
+  animation: message-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Floating reaction pill bar */
+.reaction-bar-shadow {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.08);
+}
+
+.dark .reaction-bar-shadow {
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.5), 0 2px 8px -1px rgba(0, 0, 0, 0.35);
+}
+
+/* Active conversation item glow */
+.active-conv-indicator {
+  box-shadow: 0 0 16px -2px rgba(124, 58, 237, 0.25);
+}
+
+/* Ambient Wallpaper Themes */
+.wallpaper-cosmic {
+  background-color: hsl(var(--background));
+  background-image: 
+    radial-gradient(at 0% 0%, hsl(var(--primary) / 0.07) 0px, transparent 40%),
+    radial-gradient(at 100% 100%, hsl(var(--primary) / 0.05) 0px, transparent 50%),
+    radial-gradient(circle, hsl(var(--foreground) / 0.035) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 28px 28px;
+}
+
+.wallpaper-midnight {
+  background-color: #090d16 !important;
+  background-image: 
+    radial-gradient(at 20% 20%, rgba(99, 102, 241, 0.14) 0px, transparent 45%),
+    radial-gradient(at 80% 80%, rgba(139, 92, 246, 0.1) 0px, transparent 55%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px) !important;
+  background-size: 100% 100%, 100% 100%, 24px 24px !important;
+}
+
+.wallpaper-emerald {
+  background-color: #04100e !important;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 45%),
+    radial-gradient(at 100% 100%, rgba(5, 150, 105, 0.09) 0px, transparent 55%),
+    radial-gradient(circle, rgba(16, 185, 129, 0.05) 1px, transparent 1px) !important;
+  background-size: 100% 100%, 100% 100%, 26px 26px !important;
+}
+
+.wallpaper-sapphire {
+  background-color: #06111f !important;
+  background-image: 
+    radial-gradient(at 10% 10%, rgba(14, 165, 233, 0.16) 0px, transparent 45%),
+    radial-gradient(at 90% 90%, rgba(59, 130, 246, 0.11) 0px, transparent 55%),
+    radial-gradient(circle, rgba(56, 189, 248, 0.05) 1px, transparent 1px) !important;
+  background-size: 100% 100%, 100% 100%, 26px 26px !important;
+}
+
+.wallpaper-minimal {
+  background-color: hsl(var(--background)) !important;
+  background-image: none !important;
+}
+
+/* Floating composer island */
+.composer-island {
+  box-shadow: 0 10px 32px -4px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+}
+
+.dark .composer-island {
+  box-shadow: 0 12px 38px -4px rgba(0, 0, 0, 0.45), 0 4px 16px -2px rgba(0, 0, 0, 0.3);
 }

@@ -13,6 +13,7 @@ import {
   ReceiptStatus,
   Profile,
   SyncedPhoneContact,
+  SatelliteTelemetry,
 } from '@/types';
 import {
   INITIAL_CONVERSATIONS,
@@ -22,8 +23,19 @@ import {
   DEMO_CHANNELS,
   DEMO_COMMUNITIES,
 } from '@/data/mockData';
+import { businessStore } from '@/lib/business/businessStore';
 import { useAuth } from './AuthContext';
 import { createClient } from '@/lib/supabase/client';
+import { formatDuration } from '@/lib/utils';
+import { callAudio } from '@/lib/callAudio';
+import { ScheduledAiTask, UserVoiceProfile, SmartReplyOption, MealStatus } from '@/types/ai';
+import {
+  DEFAULT_USER_VOICE_PROFILE,
+  processDeltaAiMessage,
+  generateSmartReplies,
+  getAutoReplyForFoodInquiry,
+  simulateBusinessAiCustomerSupport,
+} from '@/lib/ai/deltaAiEngine';
 import {
   isWebContactsSupported,
   pickNativeDeviceContacts,
@@ -48,6 +60,8 @@ interface SendMessageOptions {
     options: string[];
     is_multiple?: boolean;
   };
+  metadata?: Record<string, any>;
+  customSender?: Profile;
 }
 
 interface MessagingContextType {
@@ -61,11 +75,17 @@ interface MessagingContextType {
   isTyping: Record<string, string[]>; // conversationId -> array of typing user display names
   activeCall: CallSession | null;
   searchFilter: string;
-  activeTab: 'chats' | 'status' | 'channels' | 'communities' | 'settings';
-  setActiveTab: (tab: 'chats' | 'status' | 'channels' | 'communities' | 'settings') => void;
+  activeTab: 'chats' | 'status' | 'channels' | 'communities' | 'business' | 'settings';
+  setActiveTab: (tab: 'chats' | 'status' | 'channels' | 'communities' | 'business' | 'settings') => void;
   setActiveConversationId: (id: string | null) => void;
   setSearchFilter: (query: string) => void;
   sendMessage: (content: string, type?: MessageType, options?: SendMessageOptions) => Promise<void>;
+  sendBusinessApiMessage: (targetConvId: string, payload: {
+    content: string;
+    type?: MessageType;
+    metadata?: Record<string, any>;
+    attachments?: any[];
+  }) => Promise<void>;
   editMessage: (messageId: string, newContent: string) => Promise<void>;
   deleteMessage: (messageId: string) => Promise<void>;
   reactToMessage: (messageId: string, emoji: string) => Promise<void>;
@@ -95,9 +115,37 @@ interface MessagingContextType {
   addContactByPhone: (name: string, phoneNumber: string) => Promise<{ matchedUser?: Profile }>;
   removeSyncedContact: (id: string) => void;
   syncSampleAddressBook: () => void;
+  // Satellite Direct-to-Cell (3GPP Rel-17 NTN)
+  isSatelliteMode: boolean;
+  satelliteTelemetry: SatelliteTelemetry;
+  showSatelliteRadar: boolean;
+  setShowSatelliteRadar: (show: boolean) => void;
+  toggleSatelliteMode: () => void;
+  // AI Messenger Engine
+  scheduledTasks: ScheduledAiTask[];
+  userVoiceProfile: UserVoiceProfile;
+  setUserVoiceProfile: (profile: UserVoiceProfile) => void;
+  scheduleAiTask: (task: Omit<ScheduledAiTask, 'id' | 'createdAt' | 'status'>) => ScheduledAiTask;
+  cancelScheduledTask: (taskId: string) => void;
+  executeScheduledTaskNow: (taskId: string) => void;
+  activeSmartReplies: SmartReplyOption[];
+  applySmartReply: (reply: SmartReplyOption) => void;
+  mealStatus: MealStatus;
+  setMealStatus: (status: MealStatus) => void;
+  isAiAutoPilot: boolean;
+  toggleAiAutoPilot: () => void;
 }
 
 const MessagingContext = createContext<MessagingContextType | undefined>(undefined);
+
+const DEFAULT_SATELLITE_TELEMETRY: SatelliteTelemetry = {
+  satellite_id: 'STARLINK-V2M-3841',
+  constellation: 'Direct-to-Cell LEO (3GPP Rel-17 NTN)',
+  elevation_deg: 54.2,
+  azimuth_deg: 218.4,
+  signal_quality: 'optimal',
+  latency_ms: 780,
+};
 
 export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const { currentUser, isConfigured, availableDemoUsers } = useAuth();
@@ -109,9 +157,24 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const [communities] = useState<Community[]>(DEMO_COMMUNITIES);
   const [isTyping, setIsTyping] = useState<Record<string, string[]>>({});
   const [searchFilter, setSearchFilter] = useState('');
-  const [activeTab, setActiveTab] = useState<'chats' | 'status' | 'channels' | 'communities' | 'settings'>('chats');
+  const [activeTab, setActiveTab] = useState<'chats' | 'status' | 'channels' | 'communities' | 'business' | 'settings'>('chats');
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+
+  // Satellite Direct-to-Cell state
+  const [isSatelliteMode, setIsSatelliteMode] = useState<boolean>(false);
+  const [showSatelliteRadar, setShowSatelliteRadar] = useState<boolean>(false);
+  const [satelliteTelemetry, setSatelliteTelemetry] = useState<SatelliteTelemetry>(DEFAULT_SATELLITE_TELEMETRY);
+
+  const toggleSatelliteMode = useCallback(() => {
+    setIsSatelliteMode((prev) => {
+      const next = !prev;
+      if (next) {
+        callAudio.playSatelliteUplinkTone();
+      }
+      return next;
+    });
+  }, []);
 
   // Phone Contact Sync State - Automatically initialized & continuously synchronized in background
   const [syncedContacts, setSyncedContacts] = useState<SyncedPhoneContact[]>(() => {
@@ -124,6 +187,37 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
 
+  // AI Messenger Engine State
+  const [scheduledTasks, setScheduledTasks] = useState<ScheduledAiTask[]>([]);
+  const [userVoiceProfile, setUserVoiceProfileState] = useState<UserVoiceProfile>(DEFAULT_USER_VOICE_PROFILE);
+  const [activeSmartReplies, setActiveSmartReplies] = useState<SmartReplyOption[]>([]);
+  const [mealStatus, setMealStatusState] = useState<MealStatus>('auto_schedule');
+  const [isAiAutoPilot, setIsAiAutoPilot] = useState<boolean>(true);
+
+  const setMealStatus = useCallback((status: MealStatus) => {
+    setMealStatusState(status);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_meal_status', status);
+    }
+  }, []);
+
+  const toggleAiAutoPilot = useCallback(() => {
+    setIsAiAutoPilot((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('delta_ai_autopilot', String(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const setUserVoiceProfile = useCallback((profile: UserVoiceProfile) => {
+    setUserVoiceProfileState(profile);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_user_voice', JSON.stringify(profile));
+    }
+  }, []);
+
   // Load from localStorage in browser if available
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -131,6 +225,23 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       const storedConvs = localStorage.getItem('delta_conversations');
       const storedMsgs = localStorage.getItem('delta_messages');
       const storedStatuses = localStorage.getItem('delta_statuses');
+      const storedTasks = localStorage.getItem('delta_scheduled_tasks');
+      const storedVoice = localStorage.getItem('delta_user_voice');
+
+      if (storedTasks) {
+        try { setScheduledTasks(JSON.parse(storedTasks)); } catch (e) { console.error(e); }
+      }
+      if (storedVoice) {
+        try { setUserVoiceProfileState(JSON.parse(storedVoice)); } catch (e) { console.error(e); }
+      }
+      const storedMealStatus = localStorage.getItem('delta_meal_status');
+      if (storedMealStatus) {
+        setMealStatusState(storedMealStatus as MealStatus);
+      }
+      const storedAutoPilot = localStorage.getItem('delta_ai_autopilot');
+      if (storedAutoPilot !== null) {
+        setIsAiAutoPilot(storedAutoPilot === 'true');
+      }
 
       if (storedConvs) {
         try {
@@ -140,11 +251,20 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
               ? { ...c, avatar_url: '/delta_logo_without_text.png' }
               : c
           );
-          setConversations(migrated);
+          // Ensure new system conversations (conv-delta-ai, conv-diva) are always present
+          const missing = INITIAL_CONVERSATIONS.filter(
+            (ic) => !migrated.some((c) => c.id === ic.id)
+          );
+          setConversations([...missing, ...migrated]);
         } catch (e) { console.error(e); }
       }
       if (storedMsgs) {
-        try { setMessagesMap(JSON.parse(storedMsgs)); } catch (e) { console.error(e); }
+        try {
+          const parsed = JSON.parse(storedMsgs);
+          if (!parsed['conv-delta-ai']) parsed['conv-delta-ai'] = INITIAL_MESSAGES['conv-delta-ai'];
+          if (!parsed['conv-diva']) parsed['conv-diva'] = INITIAL_MESSAGES['conv-diva'];
+          setMessagesMap(parsed);
+        } catch (e) { console.error(e); }
       }
       if (storedStatuses) {
         try { setStatuses(JSON.parse(storedStatuses)); } catch (e) { console.error(e); }
@@ -226,6 +346,75 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     };
   }, [activeConversationId]);
 
+  // Synchronize incoming Business API messages (from external cURL, ERP, Python, or Webhooks)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const checkIncomingBusinessMessages = () => {
+      try {
+        const queued = businessStore.getPendingIncomingMessages();
+        if (queued && queued.length > 0) {
+          queued.forEach((item) => {
+            const cleanTo = item.to.replace(/[^0-9]/g, '');
+            let targetConv = conversations.find(
+              (c) =>
+                c.id === item.to ||
+                (c.title && c.title.replace(/[^0-9]/g, '').endsWith(cleanTo.slice(-10)))
+            );
+
+            const convId = targetConv ? targetConv.id : (conversations[0]?.id || 'conv-1');
+            const bizProfile = businessStore.getProfile();
+            const newMsg: Message = {
+              id: item.id,
+              conversation_id: convId,
+              sender_id: bizProfile.id,
+              sender: {
+                id: bizProfile.id,
+                username: 'apex_business',
+                display_name: bizProfile.business_name,
+                avatar_url: bizProfile.avatar_url,
+                phone_number: bizProfile.phone_number,
+                status_message: 'Verified Delta Business',
+              },
+              content: item.content,
+              type: (item.type as any) || 'text',
+              created_at: item.timestamp,
+              status: 'delivered',
+              metadata: item.metadata,
+              attachments: item.attachments,
+            };
+
+            setMessagesMap((prev) => {
+              const existing = prev[convId] || [];
+              if (existing.some((m) => m.id === newMsg.id)) return prev;
+              return { ...prev, [convId]: [...existing, newMsg] };
+            });
+
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === convId
+                  ? {
+                      ...c,
+                      last_message: newMsg,
+                      updated_at: newMsg.created_at,
+                      unread_count: c.id !== activeConversationId ? (c.unread_count || 0) + 1 : 0,
+                    }
+                  : c
+              )
+            );
+          });
+
+          businessStore.clearPendingIncomingMessages();
+        }
+      } catch (e) {
+        // Safe catch
+      }
+    };
+
+    const interval = setInterval(checkIncomingBusinessMessages, 1000);
+    return () => clearInterval(interval);
+  }, [conversations, activeConversationId]);
+
   // Sync to localStorage
   const persistState = useCallback((newConvs: Conversation[], newMsgs: Record<string, Message[]>, newStats?: DeltaStatus[]) => {
     if (typeof window !== 'undefined') {
@@ -260,6 +449,174 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  // Schedule a new AI Task
+  const scheduleAiTask = useCallback((taskData: Omit<ScheduledAiTask, 'id' | 'createdAt' | 'status'>): ScheduledAiTask => {
+    const newTask: ScheduledAiTask = {
+      ...taskData,
+      id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    setScheduledTasks((prev) => {
+      const updated = [...prev, newTask];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('delta_scheduled_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+    return newTask;
+  }, []);
+
+  // Cancel a scheduled AI Task
+  const cancelScheduledTask = useCallback((taskId: string) => {
+    setScheduledTasks((prev) => {
+      const updated = prev.map((t) => (t.id === taskId ? { ...t, status: 'cancelled' as const } : t));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('delta_scheduled_tasks', JSON.stringify(updated));
+      }
+      return updated;
+    });
+
+    const cancelMsg: Message = {
+      id: `msg-ai-cancel-${Date.now()}`,
+      conversation_id: 'conv-delta-ai',
+      sender_id: 'user-delta-ai',
+      sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+      content: `❌ Cancelled scheduled task #${taskId.slice(-4)}. It will not be sent.`,
+      type: 'text',
+      created_at: new Date().toISOString(),
+      status: 'read',
+    };
+
+    setMessagesMap((mMap) => ({
+      ...mMap,
+      ['conv-delta-ai']: [...(mMap['conv-delta-ai'] || []), cancelMsg],
+    }));
+  }, []);
+
+  // Immediately execute a scheduled AI Task now
+  const executeScheduledTaskNow = useCallback((taskId: string) => {
+    setScheduledTasks((prev) => {
+      const updated = prev.map((t) => (t.id === taskId ? { ...t, targetTimestamp: Date.now() - 1000 } : t));
+      return updated;
+    });
+  }, []);
+
+  // Background automated execution loop for scheduled messages & reminders (ticks every 1s)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setScheduledTasks((prev) => {
+        let changed = false;
+        const updated = prev.map((task) => {
+          if (task.status === 'pending' && task.targetTimestamp <= now) {
+            changed = true;
+            // Execute the scheduled task
+            if (task.type === 'send_message') {
+              // Find target conversation or default to Diva
+              const targetConv = conversations.find(
+                (c) =>
+                  c.id === task.recipientConversationId ||
+                  c.title?.toLowerCase().includes(task.recipientName.toLowerCase())
+              );
+              const targetConvId = targetConv ? targetConv.id : 'conv-diva';
+
+              // Dispatch message into the recipient conversation
+              const autoMsg: Message = {
+                id: `msg-auto-${Date.now()}`,
+                conversation_id: targetConvId,
+                sender_id: currentUser?.id || 'user-aarav',
+                sender: currentUser || DEMO_PROFILES[0],
+                content: task.content,
+                type: 'text',
+                created_at: new Date().toISOString(),
+                status: 'delivered',
+              };
+
+              setMessagesMap((mMap) => ({
+                ...mMap,
+                [targetConvId]: [...(mMap[targetConvId] || []), autoMsg],
+              }));
+
+              // Send confirmation notification into Delta AI chat
+              const notifyMsg: Message = {
+                id: `msg-ai-notify-${Date.now()}`,
+                conversation_id: 'conv-delta-ai',
+                sender_id: 'user-delta-ai',
+                sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+                content: `🚀 **Auto-Dispatched at ${task.scheduledTimeStr}:** Successfully sent "${task.content}" to ${task.recipientName}!`,
+                type: 'text',
+                created_at: new Date().toISOString(),
+                status: 'read',
+              };
+
+              setMessagesMap((mMap) => ({
+                ...mMap,
+                ['conv-delta-ai']: [...(mMap['conv-delta-ai'] || []), notifyMsg],
+              }));
+            } else if (task.type === 'reminder') {
+              // Notification for reminder
+              const reminderMsg: Message = {
+                id: `msg-ai-remind-${Date.now()}`,
+                conversation_id: 'conv-delta-ai',
+                sender_id: 'user-delta-ai',
+                sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+                content: `🔔 **Scheduled Reminder Triggered:** ${task.content}!`,
+                type: 'text',
+                created_at: new Date().toISOString(),
+                status: 'read',
+              };
+
+              setMessagesMap((mMap) => ({
+                ...mMap,
+                ['conv-delta-ai']: [...(mMap['conv-delta-ai'] || []), reminderMsg],
+              }));
+            }
+
+            return { ...task, status: 'sent' as const, sentAt: new Date().toISOString() };
+          }
+          return task;
+        });
+
+        if (changed && typeof window !== 'undefined') {
+          localStorage.setItem('delta_scheduled_tasks', JSON.stringify(updated));
+        }
+        return changed ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [conversations, currentUser]);
+
+  // Compute 3-Intent Smart Replies when viewing a conversation
+  useEffect(() => {
+    if (!activeConversationId || activeConversationId === 'conv-delta-ai') {
+      setActiveSmartReplies([]);
+      return;
+    }
+
+    const currentMsgs = messagesMap[activeConversationId] || [];
+    if (currentMsgs.length === 0) {
+      setActiveSmartReplies([]);
+      return;
+    }
+
+    const lastMsg = currentMsgs[currentMsgs.length - 1];
+    // Only suggest replies if the last message was from someone else
+    if (lastMsg && lastMsg.sender_id !== currentUser?.id && lastMsg.type === 'text') {
+      const options = generateSmartReplies(lastMsg.content, userVoiceProfile);
+      setActiveSmartReplies(options);
+    } else {
+      setActiveSmartReplies([]);
+    }
+  }, [activeConversationId, messagesMap, currentUser, userVoiceProfile]);
+
+  // Apply a smart reply (send it directly into conversation)
+  const applySmartReply = useCallback((reply: SmartReplyOption) => {
+    if (!activeConversationId) return;
+    sendMessage(reply.text);
+  }, [activeConversationId]);
+
   // Send message with optimistic update & rollback handling
   const sendMessage = async (
     content: string,
@@ -275,13 +632,16 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     const optimisticMsg: Message = {
       id: tempId,
       conversation_id: activeConversationId,
-      sender_id: currentUser.id,
-      sender: currentUser,
+      sender_id: options?.customSender?.id || currentUser.id,
+      sender: options?.customSender || currentUser,
       content,
       type,
       created_at: nowIso,
       status: 'sent',
       is_optimistic: true,
+      metadata: options?.metadata,
+      is_satellite: isSatelliteMode,
+      satellite_meta: isSatelliteMode ? { ...satelliteTelemetry } : null,
       reply_to_message_id: options?.replyToId,
       reply_to: options?.replyToId
         ? (messagesMap[activeConversationId] || []).find((m) => m.id === options.replyToId) || null
@@ -310,6 +670,10 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           }
         : null,
     };
+
+    if (isSatelliteMode) {
+      callAudio.playSatelliteUplinkTone();
+    }
 
     // Optimistically append message
     const updatedMessages = [...(messagesMap[activeConversationId] || []), optimisticMsg];
@@ -421,6 +785,161 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
   // Simulated intelligent persona reply strictly from the conversation recipient
   const simulateDemoReply = (convId: string, userMsg: string, conv: Conversation) => {
+    // 0. Ambient @delta AI Copilot Trigger across ANY conversation (groups, channels, direct)
+    const lowerUserMsg = userMsg.toLowerCase();
+    if (convId !== 'conv-delta-ai' && (lowerUserMsg.includes('@delta') || lowerUserMsg.includes('@ai'))) {
+      setIsTyping((prev) => ({ ...prev, [convId]: ['Delta AI'] }));
+
+      setTimeout(async () => {
+        setIsTyping((prev) => {
+          const copy = { ...prev };
+          delete copy[convId];
+          return copy;
+        });
+
+        const cleanPrompt = userMsg.replace(/@delta|@ai/gi, '').trim();
+        const contactsList = conversations.map((c) => ({
+          id: c.id,
+          name: c.title || 'Contact',
+          conversationId: c.id,
+        }));
+
+        const result = await processDeltaAiMessage(cleanPrompt || 'How can I assist this conversation?', {
+          contacts: contactsList,
+          currentMealStatus: mealStatus,
+        });
+
+        if (result.task) {
+          scheduleAiTask(result.task);
+        }
+
+        const aiMsg: Message = {
+          id: `msg-ai-ambient-${Date.now()}`,
+          conversation_id: convId,
+          sender_id: 'user-delta-ai',
+          sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+          content: `✨ **@Delta AI:** ${result.text}`,
+          type: 'text',
+          created_at: new Date().toISOString(),
+          status: 'delivered',
+          metadata: result.task ? { aiTask: result.task } : undefined,
+        };
+
+        setMessagesMap((prev) => ({
+          ...prev,
+          [convId]: [...(prev[convId] || []), aiMsg],
+        }));
+      }, 750);
+      return;
+    }
+
+    // 1. Delta AI Autonomous Copilot Conversation
+    if (convId === 'conv-delta-ai') {
+      setIsTyping((prev) => ({ ...prev, ['conv-delta-ai']: ['Delta AI'] }));
+
+      setTimeout(async () => {
+        setIsTyping((prev) => {
+          const copy = { ...prev };
+          delete copy['conv-delta-ai'];
+          return copy;
+        });
+
+        const contactsList = conversations.map((c) => ({
+          id: c.id,
+          name: c.title || 'Contact',
+          conversationId: c.id,
+        }));
+
+        const result = await processDeltaAiMessage(userMsg, {
+          contacts: contactsList,
+          currentMealStatus: mealStatus,
+        });
+
+        if (result.updatedMealStatus) {
+          setMealStatus(result.updatedMealStatus);
+        }
+
+        if (result.task) {
+          scheduleAiTask(result.task);
+        }
+
+        const aiMsg: Message = {
+          id: `msg-ai-${Date.now()}`,
+          conversation_id: 'conv-delta-ai',
+          sender_id: 'user-delta-ai',
+          sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+          content: result.text,
+          type: 'text',
+          created_at: new Date().toISOString(),
+          status: 'read',
+          metadata: result.task ? { aiTask: result.task } : undefined,
+        };
+
+        setMessagesMap((prev) => ({
+          ...prev,
+          ['conv-delta-ai']: [...(prev['conv-delta-ai'] || []), aiMsg],
+        }));
+      }, 700);
+      return;
+    }
+
+    // 2. Diva (Authentic Tanglish Conversationalist)
+    if (convId === 'conv-diva') {
+      const divaProfile = DEMO_PROFILES.find((p) => p.id === 'user-diva') || DEMO_PROFILES[1];
+      setIsTyping((prev) => ({ ...prev, ['conv-diva']: ['Diva'] }));
+
+      setTimeout(() => {
+        setIsTyping((prev) => {
+          const copy = { ...prev };
+          delete copy['conv-diva'];
+          return copy;
+        });
+
+        let divaReply = 'Semma macha! Innaiku super busy, aprom pesren 👍';
+        const lower = userMsg.toLowerCase();
+
+        if (
+          lower.includes('aama') ||
+          lower.includes('sapten') ||
+          lower.includes('sptn') ||
+          lower.includes('mudinjathu') ||
+          lower.includes('biryani') ||
+          lower.includes('yes')
+        ) {
+          divaReply = 'Semma da! Innaiku naanum friend kooda hotel-la lunch mudichen 🍛 Evening cricket match polama?';
+        } else if (
+          lower.includes('innum illa') ||
+          lower.includes('inu ila') ||
+          lower.includes('illa') ||
+          lower.includes('no') ||
+          lower.includes('busy')
+        ) {
+          divaReply = 'Aiyoo seekiram poi saapdu da, time aachu! Udamba paathuko 😅';
+        } else if (lower.includes('ipo thaan') || lower.includes('pasi')) {
+          divaReply = 'Haha kandippa da, poi nalla saapdu! Enna menu innaiku? 🤤';
+        } else if (lower.includes('sptyaa') || lower.includes('saptyaa')) {
+          divaReply = 'Aama da, ipo thaan lunch mudichen! Semma tasty curd rice & potato fry 😂 Nee sapteeya?';
+        }
+
+        const divaMsg: Message = {
+          id: `msg-diva-${Date.now()}`,
+          conversation_id: 'conv-diva',
+          sender_id: divaProfile.id,
+          sender: divaProfile,
+          content: divaReply,
+          type: 'text',
+          created_at: new Date().toISOString(),
+          status: 'delivered',
+        };
+
+        setMessagesMap((prev) => ({
+          ...prev,
+          ['conv-diva']: [...(prev['conv-diva'] || []), divaMsg],
+        }));
+      }, 1200);
+      return;
+    }
+
     let responder: Profile | undefined;
     if (conv.type === 'group') {
       const otherMember = conv.members?.find((m) => m.user_id !== currentUser?.id);
@@ -457,7 +976,9 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       let replyText = `Thanks for sending that! The interaction feels snappy and responsive.`;
       const lower = userMsg.toLowerCase();
 
-      if (lower.includes('call') || lower.includes('voice') || lower.includes('video')) {
+      if (isSatelliteMode) {
+        replyText = `[🛰️ Rel-17 Direct-to-Cell] Received via Starlink satellite beam #${Math.floor(Math.random() * 80 + 10)}! Cross-border telemetry verified with 0% ground cell dependencies.`;
+      } else if (lower.includes('call') || lower.includes('voice') || lower.includes('video')) {
         replyText = `Hey, ${firstName} here! I'm ready for the call. Tap the audio or video icon above to start the WebRTC connection.`;
       } else if (lower.includes('supabase') || lower.includes('database') || lower.includes('rls')) {
         replyText = `The Row Level Security policies and PostgreSQL migrations are all in place. All user boundaries are strictly enforced!`;
@@ -480,6 +1001,17 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         type: 'text',
         created_at: new Date().toISOString(),
         status: 'read',
+        is_satellite: isSatelliteMode,
+        satellite_meta: isSatelliteMode
+          ? {
+              satellite_id: 'STARLINK-V2M-3841',
+              constellation: 'Direct-to-Cell LEO (3GPP Rel-17 NTN)',
+              elevation_deg: 58.1,
+              azimuth_deg: 214.7,
+              signal_quality: 'optimal',
+              latency_ms: 820,
+            }
+          : null,
       };
 
       setMessagesMap((prev) => {
@@ -842,6 +1374,74 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const sendBusinessApiMessage = useCallback(
+    async (
+      targetConvId: string,
+      payload: {
+        content: string;
+        type?: MessageType;
+        metadata?: Record<string, any>;
+        attachments?: any[];
+      }
+    ) => {
+      const bizProfile = businessStore.getProfile();
+      const tempId = `deltamid.${Date.now()}`;
+      const nowIso = new Date().toISOString();
+
+      const businessSender: Profile = {
+        id: bizProfile.id,
+        username: 'apex_business',
+        display_name: bizProfile.business_name,
+        avatar_url: bizProfile.avatar_url,
+        phone_number: bizProfile.phone_number,
+        status_message: 'Verified Delta Business',
+      };
+
+      const newMsg: Message = {
+        id: tempId,
+        conversation_id: targetConvId,
+        sender_id: businessSender.id,
+        sender: businessSender,
+        content: payload.content,
+        type: payload.type || 'text',
+        created_at: nowIso,
+        status: 'delivered',
+        metadata: {
+          ...payload.metadata,
+          business: {
+            is_business: true,
+            verified: true,
+            business_name: bizProfile.business_name,
+            zero_charge: true,
+            cost: '0.00',
+            currency: 'INR',
+          },
+        },
+        attachments: payload.attachments,
+      };
+
+      setMessagesMap((prev) => {
+        const currentList = prev[targetConvId] || [];
+        const nextList = [...currentList, newMsg];
+        return { ...prev, [targetConvId]: nextList };
+      });
+
+      setConversations((prev) => {
+        const updated = prev.map((c) =>
+          c.id === targetConvId
+            ? { ...c, last_message: newMsg, updated_at: nowIso }
+            : c
+        );
+        return [...updated].sort(
+          (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
+      });
+
+      callAudio.playMessageSentTone();
+    },
+    []
+  );
+
   return (
     <MessagingContext.Provider
       value={{
@@ -860,6 +1460,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         setActiveConversationId,
         setSearchFilter,
         sendMessage,
+        sendBusinessApiMessage,
         editMessage,
         deleteMessage,
         reactToMessage,
@@ -889,6 +1490,25 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         addContactByPhone,
         removeSyncedContact,
         syncSampleAddressBook,
+        // Satellite Direct-to-Cell
+        isSatelliteMode,
+        satelliteTelemetry,
+        showSatelliteRadar,
+        setShowSatelliteRadar,
+        toggleSatelliteMode,
+        // AI Messenger Engine
+        scheduledTasks,
+        userVoiceProfile,
+        setUserVoiceProfile,
+        scheduleAiTask,
+        cancelScheduledTask,
+        executeScheduledTaskNow,
+        activeSmartReplies,
+        applySmartReply,
+        mealStatus,
+        setMealStatus,
+        isAiAutoPilot,
+        toggleAiAutoPilot,
       }}
     >
       {children}

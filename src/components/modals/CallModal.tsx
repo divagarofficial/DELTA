@@ -190,11 +190,10 @@ export function CallModal() {
               </div>
             </div>
 
-            {/* E2EE badge */}
+            {/* WebRTC P2P badge */}
             <div className="flex items-center gap-1 text-[11px] bg-white/10 px-2.5 py-1 rounded-full text-white/90">
               <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">WebRTC</span>
-              <span>E2EE</span>
+              <span>WebRTC P2P</span>
             </div>
 
             {/* Fullscreen button */}

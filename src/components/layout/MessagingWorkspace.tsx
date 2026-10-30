@@ -13,11 +13,19 @@ import { NewChatModal } from '@/components/modals/NewChatModal';
 import { SettingsModal } from '@/components/modals/SettingsModal';
 import { NewStatusModal } from '@/components/modals/NewStatusModal';
 import { StatusViewerModal } from '@/components/modals/StatusViewerModal';
+import { SatelliteRadarModal } from '@/components/modals/SatelliteRadarModal';
+import { DeltaBusinessHub } from '@/components/business/DeltaBusinessHub';
 import { useMessaging } from '@/context/MessagingContext';
 import { DeltaStatus } from '@/types';
 
 export function MessagingWorkspace() {
-  const { activeTab, activeConversationId, setActiveConversationId } = useMessaging();
+  const {
+    activeTab,
+    activeConversationId,
+    setActiveConversationId,
+    showSatelliteRadar,
+    setShowSatelliteRadar,
+  } = useMessaging();
   const [showSettings, setShowSettings] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
   const [showNewStatus, setShowNewStatus] = useState(false);
@@ -29,40 +37,47 @@ export function MessagingWorkspace() {
       {/* 1. Left Vertical Navigation Rail (Desktop) */}
       <NavigationRail onOpenSettings={() => setShowSettings(true)} />
 
-      {/* 2. Middle Panel: List depending on active tab */}
-      <div
-        className={`h-full ${
-          activeConversationId ? 'hidden md:flex' : 'flex w-full md:w-auto'
-        }`}
-      >
-        {activeTab === 'chats' && (
-          <ConversationList onOpenNewChat={() => setShowNewChat(true)} />
-        )}
-        {activeTab === 'status' && (
-          <StatusView
-            onOpenNewStatus={() => setShowNewStatus(true)}
-            onSelectStatus={(st) => setViewingStatus(st)}
-          />
-        )}
-        {activeTab === 'channels' && <ChannelsView />}
-        {activeTab === 'communities' && <CommunitiesView />}
-      </div>
+      {/* Render Delta Business Suite or Standard Messaging View */}
+      {activeTab === 'business' ? (
+        <DeltaBusinessHub />
+      ) : (
+        <>
+          {/* 2. Middle Panel: List depending on active tab */}
+          <div
+            className={`h-full ${
+              activeConversationId ? 'hidden md:flex' : 'flex w-full md:w-auto'
+            }`}
+          >
+            {activeTab === 'chats' && (
+              <ConversationList onOpenNewChat={() => setShowNewChat(true)} />
+            )}
+            {activeTab === 'status' && (
+              <StatusView
+                onOpenNewStatus={() => setShowNewStatus(true)}
+                onSelectStatus={(st) => setViewingStatus(st)}
+              />
+            )}
+            {activeTab === 'channels' && <ChannelsView />}
+            {activeTab === 'communities' && <CommunitiesView />}
+          </div>
 
-      {/* 3. Main Chat View & Details Drawer */}
-      <div
-        className={`flex-1 h-full flex ${
-          !activeConversationId ? 'hidden md:flex' : 'flex'
-        }`}
-      >
-        <ChatArea
-          onBackMobile={() => setActiveConversationId(null)}
-          onOpenDetails={() => setShowDetails(!showDetails)}
-        />
+          {/* 3. Main Chat View & Details Drawer */}
+          <div
+            className={`flex-1 h-full flex ${
+              !activeConversationId ? 'hidden md:flex' : 'flex'
+            }`}
+          >
+            <ChatArea
+              onBackMobile={() => setActiveConversationId(null)}
+              onOpenDetails={() => setShowDetails(!showDetails)}
+            />
 
-        {showDetails && (
-          <ConversationDetails onClose={() => setShowDetails(false)} />
-        )}
-      </div>
+            {showDetails && (
+              <ConversationDetails onClose={() => setShowDetails(false)} />
+            )}
+          </div>
+        </>
+      )}
 
       {/* Global Modals */}
       <CallModal />
@@ -70,6 +85,7 @@ export function MessagingWorkspace() {
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
       <NewStatusModal isOpen={showNewStatus} onClose={() => setShowNewStatus(false)} />
       <StatusViewerModal status={viewingStatus} onClose={() => setViewingStatus(null)} />
+      <SatelliteRadarModal isOpen={showSatelliteRadar} onClose={() => setShowSatelliteRadar(false)} />
     </div>
   );
 }

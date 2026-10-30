@@ -41,11 +41,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     importContactsFromFile,
     syncSampleAddressBook,
     isContactsPickerSupported,
+    mealStatus,
+    setMealStatus,
+    isAiAutoPilot,
+    toggleAiAutoPilot,
   } = useMessaging();
-  const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'privacy' | 'notifications' | 'database'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'ai' | 'privacy' | 'notifications' | 'database'>('profile');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Gemini API Key & AI Settings State
+  const [geminiKey, setGeminiKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('delta_gemini_api_key') || '';
+    }
+    return '';
+  });
+  const [isAiSaved, setIsAiSaved] = useState(false);
 
   // Profile form state
   const [displayName, setDisplayName] = useState(currentUser?.display_name || '');
@@ -111,6 +124,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {[
             { id: 'profile' as const, label: 'Profile', icon: User },
             { id: 'contacts' as const, label: 'Contacts & Sync', icon: Smartphone },
+            { id: 'ai' as const, label: 'Delta AI & Auto-Pilot', icon: Sparkles },
             { id: 'privacy' as const, label: 'Privacy', icon: Shield },
             { id: 'notifications' as const, label: 'Notifications', icon: Bell },
             { id: 'database' as const, label: 'DevOps & Backend', icon: Database },
@@ -317,6 +331,147 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       No contacts synced yet. Click &apos;Sync Phone Contacts&apos; to import contacts.
                     </p>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* AI & Auto-Pilot Tab */}
+          {activeTab === 'ai' && (
+            <div className="space-y-4 animate-fade-in">
+              {/* 1. Google Gemini API Key */}
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-cyan-500/10 border border-violet-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-violet-500 animate-pulse" />
+                    <span className="font-bold text-sm text-foreground">Google Gemini API</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    geminiKey
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
+                  }`}>
+                    {geminiKey ? '🟢 Gemini 1.5 Flash Connected' : '⚡ Delta Local Engine'}
+                  </span>
+                </div>
+
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  Delta uses Google&apos;s free <strong>Gemini 1.5 Flash API</strong> for ultra-fast Tanglish intelligence and open conversational capabilities without training a model.
+                </p>
+
+                <div>
+                  <label className="font-semibold text-muted-foreground block mb-1">
+                    Gemini API Key (Free from Google AI Studio)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      placeholder="AIzaSy..."
+                      value={geminiKey}
+                      onChange={(e) => {
+                        setGeminiKey(e.target.value);
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('delta_gemini_api_key', e.target.value.trim());
+                        }
+                        setIsAiSaved(true);
+                        setTimeout(() => setIsAiSaved(false), 2000);
+                      }}
+                      className="flex-1 bg-muted text-foreground text-xs font-mono px-3 py-2 rounded-xl border border-transparent focus:border-violet-500 focus:bg-background focus:outline-none"
+                    />
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs flex items-center gap-1 shrink-0 transition-all shadow-2xs"
+                    >
+                      <span>Get Free Key</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                  {isAiSaved && (
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+                      ✅ Key saved to local storage! Delta AI is now using Gemini 1.5 Flash.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Auto-Pilot & Meal Status ("sptn" vs "inu ila") */}
+              <div className="p-4 rounded-2xl bg-surface border border-border/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-bold text-sm text-foreground block">AI Auto-Pilot Mode</span>
+                    <span className="text-muted-foreground text-xs">Automatically answer routine questions (e.g. food, status) based on your real state</span>
+                  </div>
+                  <button
+                    onClick={toggleAiAutoPilot}
+                    className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
+                      isAiAutoPilot ? 'bg-violet-600' : 'bg-muted-foreground/30'
+                    }`}
+                  >
+                    <div
+                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                        isAiAutoPilot ? 'translate-x-6' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-border/40 space-y-2">
+                  <span className="font-bold text-xs text-foreground block">
+                    Current Lunch / Meal Status
+                  </span>
+                  <p className="text-muted-foreground text-[11px]">
+                    When Diva or friends ask <em>&quot;Macha saptyaa daa?&quot;</em>, Delta AI auto-replies according to this setting:
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setMealStatus('had_lunch')}
+                      className={`p-2.5 rounded-xl border text-center transition-all ${
+                        mealStatus === 'had_lunch'
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold'
+                          : 'border-border/60 hover:bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      <span className="text-base block mb-0.5">🍛</span>
+                      <span className="text-xs font-bold block">Sptn</span>
+                      <span className="text-[10px] opacity-80 block">(Had Lunch)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMealStatus('not_yet')}
+                      className={`p-2.5 rounded-xl border text-center transition-all ${
+                        mealStatus === 'not_yet'
+                          ? 'border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold'
+                          : 'border-border/60 hover:bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      <span className="text-base block mb-0.5">⏳</span>
+                      <span className="text-xs font-bold block">Inu Ila</span>
+                      <span className="text-[10px] opacity-80 block">(Not Yet)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setMealStatus('auto_schedule')}
+                      className={`p-2.5 rounded-xl border text-center transition-all ${
+                        mealStatus === 'auto_schedule'
+                          ? 'border-violet-500 bg-violet-500/10 text-violet-700 dark:text-violet-300 font-bold'
+                          : 'border-border/60 hover:bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      <span className="text-base block mb-0.5">🔄</span>
+                      <span className="text-xs font-bold block">Auto (Clock)</span>
+                      <span className="text-[10px] opacity-80 block">(By 1:30 PM)</span>
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground italic bg-muted/40 p-2 rounded-xl mt-2">
+                    💡 <strong>Pro-Tip:</strong> You don&apos;t even have to open Settings! You can simply message Delta AI in your inbox: <code>&quot;sptn&quot;</code> or <code>&quot;inu ila&quot;</code>, and it will update this instantly.
+                  </p>
                 </div>
               </div>
             </div>
