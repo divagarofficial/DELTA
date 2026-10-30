@@ -38,6 +38,9 @@ import {
 export function DeltaBusinessHub() {
   const { conversations, sendBusinessApiMessage, setActiveConversationId, setActiveTab } = useMessaging();
 
+  // Active deployed Cloud Run backend endpoint (Free Scale-to-Zero)
+  const liveBackendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://delta-backend-44277514752.asia-south1.run.app';
+
   // Active view inside Delta Business
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'send' | 'templates' | 'api' | 'ai'>('overview');
 
@@ -1261,11 +1264,14 @@ export function DeltaBusinessHub() {
 
                 <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1.5">
                   <p className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
-                    <span>Delta Business API (Drop-in)</span>
-                    <span className="text-[10px] font-mono font-bold text-emerald-500">₹0.00 / Free</span>
+                    <span className="flex items-center gap-1.5">
+                      Delta Business API (Drop-in)
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-emerald-500">₹0.00 / Free (Cloud Run)</span>
                   </p>
                   <p className="font-mono text-[11px] text-foreground font-semibold break-all">
-                    https://delta-messaging.vercel.app/v19.0/{'{PHONE_NUMBER_ID}'}/messages
+                    {liveBackendUrl}/v19.0/{'{PHONE_NUMBER_ID}'}/messages
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     Authorization: Bearer <span className="font-mono text-emerald-600 font-semibold">{apiKeys[0]?.hint || 'dlt_live_...'}</span>
@@ -1323,7 +1329,7 @@ export function DeltaBusinessHub() {
                   <button
                     onClick={() =>
                       copyToClipboard(
-                        `curl -X POST https://delta-messaging.vercel.app/v19.0/104829104859102/messages \\\n  -H "Authorization: Bearer ${apiKeys[0]?.key || 'dlt_live_apex_token'}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "messaging_product": "whatsapp",\n    "recipient_type": "individual",\n    "to": "+919876543210",\n    "type": "template",\n    "template": {\n      "name": "order_dispatched",\n      "language": { "code": "en_US" },\n      "components": [\n        {\n          "type": "body",\n          "parameters": [\n            { "type": "text", "text": "Priya" },\n            { "type": "text", "text": "ORD-54321" },\n            { "type": "text", "text": "6:00 PM" }\n          ]\n        }\n      ]\n    }\n  }'`,
+                        `curl -X POST ${liveBackendUrl}/v19.0/104829104859102/messages \\\n  -H "Authorization: Bearer ${apiKeys[0]?.key || 'dlt_live_apex_token'}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "messaging_product": "whatsapp",\n    "recipient_type": "individual",\n    "to": "+919876543210",\n    "type": "template",\n    "template": {\n      "name": "order_dispatched",\n      "language": { "code": "en_US" },\n      "components": [\n        {\n          "type": "body",\n          "parameters": [\n            { "type": "text", "text": "Priya" },\n            { "type": "text", "text": "ORD-54321" },\n            { "type": "text", "text": "6:00 PM" }\n          ]\n        }\n      ]\n    }\n  }'`,
                         'cURL command'
                       )
                     }
@@ -1334,7 +1340,7 @@ export function DeltaBusinessHub() {
                   </button>
                   <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
 {`# 100% WhatsApp Cloud API Compatible cURL
-curl -X POST https://delta-messaging.vercel.app/v19.0/104829104859102/messages \\
+curl -X POST ${liveBackendUrl}/v19.0/104829104859102/messages \\
   -H "Authorization: Bearer ${apiKeys[0]?.key || 'dlt_live_apex_token'}" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -1367,7 +1373,7 @@ curl -X POST https://delta-messaging.vercel.app/v19.0/104829104859102/messages \
                     onClick={() =>
                       copyToClipboard(
                         `// Node.js: Just swap BASE_URL and ACCESS_TOKEN
-const BASE_URL = 'https://delta-messaging.vercel.app/v19.0';
+const BASE_URL = '${liveBackendUrl}/v19.0';
 const PHONE_NUMBER_ID = '104829104859102';
 const TOKEN = process.env.DELTA_API_KEY || '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
 
@@ -1398,7 +1404,7 @@ console.log('Message ID:', result.messages[0].id);`,
                   </button>
                   <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
 {`// Node.js: Just swap BASE_URL and ACCESS_TOKEN
-const BASE_URL = 'https://delta-messaging.vercel.app/v19.0';
+const BASE_URL = '${liveBackendUrl}/v19.0';
 const PHONE_NUMBER_ID = '104829104859102';
 const TOKEN = process.env.DELTA_API_KEY || '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
 
@@ -1432,7 +1438,7 @@ console.log('Message ID:', result.messages[0].id);`}
 import os
 import requests
 
-DELTA_BASE_URL = "https://delta-messaging.vercel.app/v19.0"
+DELTA_BASE_URL = "${liveBackendUrl}/v19.0"
 PHONE_NUMBER_ID = "104829104859102"
 DELTA_API_KEY = os.getenv("DELTA_API_KEY", "${apiKeys[0]?.key || 'dlt_live_apex_token'}")
 
@@ -1478,7 +1484,7 @@ print("Savings vs WhatsApp:", data["messages"][0]["pricing"]["saved_vs_whatsapp"
 import os
 import requests
 
-DELTA_BASE_URL = "https://delta-messaging.vercel.app/v19.0"
+DELTA_BASE_URL = "${liveBackendUrl}/v19.0"
 PHONE_NUMBER_ID = "104829104859102"
 DELTA_API_KEY = os.getenv("DELTA_API_KEY", "${apiKeys[0]?.key || 'dlt_live_apex_token'}")
 
@@ -1524,7 +1530,7 @@ print("Savings vs WhatsApp:", data["messages"][0]["pricing"]["saved_vs_whatsapp"
 // PHP cURL: Just swap the endpoint URL and Bearer token
 $phoneNumberId = '104829104859102';
 $token = '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
-$url = "https://delta-messaging.vercel.app/v19.0/{$phoneNumberId}/messages";
+$url = "${liveBackendUrl}/v19.0/{$phoneNumberId}/messages";
 
 $payload = [
     'messaging_product' => 'whatsapp',
@@ -1561,7 +1567,67 @@ echo "Message ID: " . $result['messages'][0]['id'];
 // PHP cURL: Just swap the endpoint URL and Bearer token
 $phoneNumberId = '104829104859102';
 $token = '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
-$url = "https://delta-messaging.vercel.app/v19.0/{$phoneNumberId}/messages";
+$url = "${liveBackendUrl}/v19.0/{$phoneNumberId}/messages";
+
+$payload = [
+    'messaging_product' => 'whatsapp',
+    'to' => '+919876543210',
+    'type' => 'text',
+    'text' => ['body' => 'Your OTP is 749201. Powered by Delta Zero-Charge API.']
+];
+
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    "Authorization: Bearer {$token}",
+    "Content-Type: application/json"
+]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$result = json_decode($response, true);
+echo "Message ID: " . $result['messages'][0]['id'];
+?>`}
+                  </pre>
+                </div>
+              )}
+    'to' => '+919876543210',
+    'type' => 'text',
+    'text' => ['body' => 'Your OTP is 749201. Powered by Delta Zero-Charge API.']
+];
+
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    "Authorization: Bearer {$token}",
+    "Content-Type: application/json"
+]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$result = json_decode($response, true);
+echo "Message ID: " . $result['messages'][0]['id'];
+?>`,
+                        'PHP code'
+                      )
+                    }
+                    className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-md bg-card/80 hover:bg-card text-foreground text-xs font-medium flex items-center gap-1 border border-border/70 shadow-2xs"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy</span>
+                  </button>
+                  <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
+{`<?php
+// PHP cURL: Just swap the endpoint URL and Bearer token
+$phoneNumberId = '104829104859102';
+$token = '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
+$url = "${liveBackendUrl}/v19.0/{$phoneNumberId}/messages";
 
 $payload = [
     'messaging_product' => 'whatsapp',
