@@ -247,41 +247,43 @@ export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
                 </span>
               </div>
 
-              {/* Switch persona option */}
-              <div className="space-y-1 mb-2">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-1">
-                  Switch Active Persona
-                </p>
-                {availableDemoUsers.map((profile) => {
-                  const isCurrent = currentUser?.id === profile.id;
-                  return (
-                    <button
-                      key={profile.id}
-                      onClick={() => {
-                        switchDemoUser(profile.id);
-                        setShowPersonaMenu(false);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs transition-all ${
-                        isCurrent
-                          ? 'bg-delta-50 text-delta-700 dark:bg-delta-950 dark:text-delta-300 font-bold border border-delta-200 dark:border-delta-800'
-                          : 'hover:bg-muted text-foreground'
-                      }`}
-                    >
-                      <div className="w-6 h-6 rounded-full overflow-hidden bg-muted shrink-0 text-[10px] flex items-center justify-center font-bold">
-                        {profile.avatar_url ? (
-                          <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          getInitials(profile.display_name)
+              {/* Switch account option (if multiple registered accounts exist on this browser) */}
+              {availableDemoUsers.length > 1 && (
+                <div className="space-y-1 mb-2">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-1">
+                    Switch Account
+                  </p>
+                  {availableDemoUsers.map((profile) => {
+                    const isCurrent = currentUser?.id === profile.id;
+                    return (
+                      <button
+                        key={profile.id}
+                        onClick={() => {
+                          switchDemoUser(profile.id);
+                          setShowPersonaMenu(false);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs transition-all ${
+                          isCurrent
+                            ? 'bg-delta-50 text-delta-700 dark:bg-delta-950 dark:text-delta-300 font-bold border border-delta-200 dark:border-delta-800'
+                            : 'hover:bg-muted text-foreground'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full overflow-hidden bg-muted shrink-0 text-[10px] flex items-center justify-center font-bold">
+                          {profile.avatar_url ? (
+                            <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            getInitials(profile.display_name)
+                          )}
+                        </div>
+                        <span className="truncate flex-1">{profile.display_name}</span>
+                        {isCurrent && (
+                          <span className="w-2 h-2 rounded-full bg-delta-600 animate-pulse" />
                         )}
-                      </div>
-                      <span className="truncate flex-1">{profile.display_name}</span>
-                      {isCurrent && (
-                        <span className="w-2 h-2 rounded-full bg-delta-600 animate-pulse" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Sign out */}
               <button

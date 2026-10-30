@@ -103,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // Check localStorage for persisted demo/local user session
+      // Check localStorage for persisted user session
       const storedUserId = typeof window !== 'undefined' ? localStorage.getItem('delta_demo_user_id') : null;
 
       // If user explicitly signed out, respect their sign out
@@ -114,7 +114,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      let found = DEMO_PROFILES.find((p) => p.id === storedUserId);
+      // Purge any legacy mock user IDs (user-aarav, user-priya, user-arjun, user-ananya, user-rohit, user-diva)
+      const mockIds = ['user-aarav', 'user-priya', 'user-arjun', 'user-ananya', 'user-rohit', 'user-diva'];
+      if (storedUserId && mockIds.includes(storedUserId)) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('delta_demo_user_id');
+        }
+        setCurrentUser(null);
+        setIsDemoMode(true);
+        setIsLoading(false);
+        return;
+      }
+
+      let found: Profile | undefined = customProfiles.find((p) => p.id === storedUserId);
 
       // Check custom registered profiles from localStorage
       if (!found && storedUserId && typeof window !== 'undefined') {
@@ -130,12 +142,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (found) {
         setCurrentUser(found);
-      } else if (storedUserId === null) {
-        // First-time visit: initialize with Aarav Mehta for instant demonstration
-        setCurrentUser(DEMO_PROFILES[0]);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('delta_demo_user_id', DEMO_PROFILES[0].id);
-        }
       } else {
         setCurrentUser(null);
       }
@@ -145,13 +151,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     initAuth();
-  }, [isConfigured, refreshCustomProfiles]);
+  }, [isConfigured, refreshCustomProfiles, customProfiles]);
 
-  // Combined list of demo profiles and newly registered accounts
-  const availableDemoUsers = [
-    ...DEMO_PROFILES,
-    ...customProfiles.filter((cp) => !DEMO_PROFILES.some((dp) => dp.id === cp.id)),
-  ];
+  // Registered accounts
+  const availableDemoUsers = customProfiles;
 
   // Sign In using Mobile Number OR Username
   const signIn = async (identifier: string, password?: string): Promise<{ error?: string }> => {
@@ -433,8 +436,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const switchDemoUser = (userId: string) => {
-    const all = [...DEMO_PROFILES, ...customProfiles];
-    const target = all.find((p) => p.id === userId);
+    const target = customProfiles.find((p) => p.id === userId);
     if (target) {
       setCurrentUser(target);
       if (typeof window !== 'undefined') {

@@ -18,7 +18,7 @@ import {
 import {
   INITIAL_CONVERSATIONS,
   INITIAL_MESSAGES,
-  DEMO_PROFILES,
+  DELTA_AI_PROFILE,
   DEMO_STATUSES,
   DEMO_CHANNELS,
   DEMO_COMMUNITIES,
@@ -150,7 +150,7 @@ const DEFAULT_SATELLITE_TELEMETRY: SatelliteTelemetry = {
 export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const { currentUser, isConfigured, availableDemoUsers } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>('conv-priya');
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messagesMap, setMessagesMap] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
   const [statuses, setStatuses] = useState<DeltaStatus[]>(DEMO_STATUSES);
   const [channels, setChannels] = useState<Channel[]>(DEMO_CHANNELS);
@@ -176,10 +176,8 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // Phone Contact Sync State - Automatically initialized & continuously synchronized in background
-  const [syncedContacts, setSyncedContacts] = useState<SyncedPhoneContact[]>(() => {
-    return matchContactsWithProfiles(DEMO_PHONE_ADDRESS_BOOK, DEMO_PROFILES);
-  });
+  // Phone Contact Sync State
+  const [syncedContacts, setSyncedContacts] = useState<SyncedPhoneContact[]>([]);
   const [isContactsPickerSupported, setIsContactsPickerSupported] = useState(false);
 
   // Call state
@@ -246,28 +244,38 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       if (storedConvs) {
         try {
           const parsed: Conversation[] = JSON.parse(storedConvs);
-          const migrated = parsed.map((c) =>
-            c.avatar_url === '/delta-logo.svg' || c.avatar_url?.endsWith('.svg')
-              ? { ...c, avatar_url: '/delta_logo_without_text.png' }
-              : c
-          );
-          // Ensure new system conversations (conv-delta-ai, conv-diva) are always present
-          const missing = INITIAL_CONVERSATIONS.filter(
-            (ic) => !migrated.some((c) => c.id === ic.id)
-          );
-          setConversations([...missing, ...migrated]);
+          const migrated = parsed
+            .map((c) =>
+              c.avatar_url === '/delta-logo.svg' || c.avatar_url?.endsWith('.svg')
+                ? { ...c, avatar_url: '/delta_logo_without_text.png' }
+                : c
+            )
+            .filter(
+              (c) =>
+                !['conv-priya', 'conv-arjun', 'conv-diva', 'conv-group-core', 'conv-channel-official'].includes(c.id)
+            );
+          setConversations(migrated);
         } catch (e) { console.error(e); }
       }
       if (storedMsgs) {
         try {
           const parsed = JSON.parse(storedMsgs);
-          if (!parsed['conv-delta-ai']) parsed['conv-delta-ai'] = INITIAL_MESSAGES['conv-delta-ai'];
-          if (!parsed['conv-diva']) parsed['conv-diva'] = INITIAL_MESSAGES['conv-diva'];
+          delete parsed['conv-priya'];
+          delete parsed['conv-arjun'];
+          delete parsed['conv-diva'];
+          delete parsed['conv-group-core'];
+          delete parsed['conv-channel-official'];
           setMessagesMap(parsed);
         } catch (e) { console.error(e); }
       }
       if (storedStatuses) {
-        try { setStatuses(JSON.parse(storedStatuses)); } catch (e) { console.error(e); }
+        try {
+          const parsed = JSON.parse(storedStatuses);
+          const filtered = Array.isArray(parsed)
+            ? parsed.filter((s: any) => !['status-priya-1', 'status-arjun-1', 'status-rohit-1'].includes(s.id))
+            : [];
+          setStatuses(filtered);
+        } catch (e) { console.error(e); }
       }
 
       // Load or initialize synced phone contacts matched against registered users
@@ -279,11 +287,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           const refreshed = matchContactsWithProfiles(rawList, availableDemoUsers);
           setSyncedContacts(refreshed);
         } catch (e) { console.error(e); }
-      } else {
-        // First-time visit: auto-match realistic address book contacts to discover Priya, Arjun, etc.
-        const initial = matchContactsWithProfiles(DEMO_PHONE_ADDRESS_BOOK, availableDemoUsers);
-        setSyncedContacts(initial);
-        localStorage.setItem('delta_synced_contacts', JSON.stringify(initial));
       }
     }
   }, [availableDemoUsers]);
@@ -481,7 +484,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       id: `msg-ai-cancel-${Date.now()}`,
       conversation_id: 'conv-delta-ai',
       sender_id: 'user-delta-ai',
-      sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+      sender: DELTA_AI_PROFILE,
       content: `❌ Cancelled scheduled task #${taskId.slice(-4)}. It will not be sent.`,
       type: 'text',
       created_at: new Date().toISOString(),
@@ -513,20 +516,20 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
             changed = true;
             // Execute the scheduled task
             if (task.type === 'send_message') {
-              // Find target conversation or default to Diva
+              // Find target conversation
               const targetConv = conversations.find(
                 (c) =>
                   c.id === task.recipientConversationId ||
                   c.title?.toLowerCase().includes(task.recipientName.toLowerCase())
               );
-              const targetConvId = targetConv ? targetConv.id : 'conv-diva';
+              const targetConvId = targetConv ? targetConv.id : 'conv-delta-ai';
 
               // Dispatch message into the recipient conversation
               const autoMsg: Message = {
                 id: `msg-auto-${Date.now()}`,
                 conversation_id: targetConvId,
-                sender_id: currentUser?.id || 'user-aarav',
-                sender: currentUser || DEMO_PROFILES[0],
+                sender_id: currentUser?.id || 'sender',
+                sender: currentUser || undefined,
                 content: task.content,
                 type: 'text',
                 created_at: new Date().toISOString(),
@@ -543,7 +546,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                 id: `msg-ai-notify-${Date.now()}`,
                 conversation_id: 'conv-delta-ai',
                 sender_id: 'user-delta-ai',
-                sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+                sender: DELTA_AI_PROFILE,
                 content: `🚀 **Auto-Dispatched at ${task.scheduledTimeStr}:** Successfully sent "${task.content}" to ${task.recipientName}!`,
                 type: 'text',
                 created_at: new Date().toISOString(),
@@ -560,7 +563,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
                 id: `msg-ai-remind-${Date.now()}`,
                 conversation_id: 'conv-delta-ai',
                 sender_id: 'user-delta-ai',
-                sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+                sender: DELTA_AI_PROFILE,
                 content: `🔔 **Scheduled Reminder Triggered:** ${task.content}!`,
                 type: 'text',
                 created_at: new Date().toISOString(),
@@ -817,7 +820,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           id: `msg-ai-ambient-${Date.now()}`,
           conversation_id: convId,
           sender_id: 'user-delta-ai',
-          sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+          sender: DELTA_AI_PROFILE,
           content: `✨ **@Delta AI:** ${result.text}`,
           type: 'text',
           created_at: new Date().toISOString(),
@@ -867,7 +870,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           id: `msg-ai-${Date.now()}`,
           conversation_id: 'conv-delta-ai',
           sender_id: 'user-delta-ai',
-          sender: DEMO_PROFILES.find((p) => p.id === 'user-delta-ai') || DEMO_PROFILES[0],
+          sender: DELTA_AI_PROFILE,
           content: result.text,
           type: 'text',
           created_at: new Date().toISOString(),
@@ -882,162 +885,6 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       }, 700);
       return;
     }
-
-    // 2. Diva (Authentic Tanglish Conversationalist)
-    if (convId === 'conv-diva') {
-      const divaProfile = DEMO_PROFILES.find((p) => p.id === 'user-diva') || DEMO_PROFILES[1];
-      setIsTyping((prev) => ({ ...prev, ['conv-diva']: ['Diva'] }));
-
-      setTimeout(() => {
-        setIsTyping((prev) => {
-          const copy = { ...prev };
-          delete copy['conv-diva'];
-          return copy;
-        });
-
-        let divaReply = 'Semma macha! Innaiku super busy, aprom pesren 👍';
-        const lower = userMsg.toLowerCase();
-
-        if (
-          lower.includes('aama') ||
-          lower.includes('sapten') ||
-          lower.includes('sptn') ||
-          lower.includes('mudinjathu') ||
-          lower.includes('biryani') ||
-          lower.includes('yes')
-        ) {
-          divaReply = 'Semma da! Innaiku naanum friend kooda hotel-la lunch mudichen 🍛 Evening cricket match polama?';
-        } else if (
-          lower.includes('innum illa') ||
-          lower.includes('inu ila') ||
-          lower.includes('illa') ||
-          lower.includes('no') ||
-          lower.includes('busy')
-        ) {
-          divaReply = 'Aiyoo seekiram poi saapdu da, time aachu! Udamba paathuko 😅';
-        } else if (lower.includes('ipo thaan') || lower.includes('pasi')) {
-          divaReply = 'Haha kandippa da, poi nalla saapdu! Enna menu innaiku? 🤤';
-        } else if (lower.includes('sptyaa') || lower.includes('saptyaa')) {
-          divaReply = 'Aama da, ipo thaan lunch mudichen! Semma tasty curd rice & potato fry 😂 Nee sapteeya?';
-        }
-
-        const divaMsg: Message = {
-          id: `msg-diva-${Date.now()}`,
-          conversation_id: 'conv-diva',
-          sender_id: divaProfile.id,
-          sender: divaProfile,
-          content: divaReply,
-          type: 'text',
-          created_at: new Date().toISOString(),
-          status: 'delivered',
-        };
-
-        setMessagesMap((prev) => ({
-          ...prev,
-          ['conv-diva']: [...(prev['conv-diva'] || []), divaMsg],
-        }));
-      }, 1200);
-      return;
-    }
-
-    let responder: Profile | undefined;
-    if (conv.type === 'group') {
-      const otherMember = conv.members?.find((m) => m.user_id !== currentUser?.id);
-      responder = availableDemoUsers.find((p) => p.id === otherMember?.user_id) || DEMO_PROFILES[3];
-    } else {
-      const otherMember = conv.members?.find((m) => m.user_id !== currentUser?.id);
-      if (otherMember) {
-        responder = availableDemoUsers.find((p) => p.id === otherMember.user_id);
-      }
-      if (!responder && conv.title) {
-        responder = availableDemoUsers.find((p) => p.display_name === conv.title || p.username === conv.title);
-      }
-      if (!responder) {
-        responder = DEMO_PROFILES[1];
-      }
-    }
-
-    const responderName = responder.display_name;
-    const firstName = responderName.split(' ')[0];
-
-    // Show typing indicator after 1.2s
-    setTimeout(() => {
-      setIsTyping((prev) => ({ ...prev, [convId]: [responderName] }));
-    }, 1200);
-
-    // Send reply after 2.8s
-    setTimeout(() => {
-      setIsTyping((prev) => {
-        const copy = { ...prev };
-        delete copy[convId];
-        return copy;
-      });
-
-      let replyText = `Thanks for sending that! The interaction feels snappy and responsive.`;
-      const lower = userMsg.toLowerCase();
-
-      if (isSatelliteMode) {
-        replyText = `[🛰️ Rel-17 Direct-to-Cell] Received via Starlink satellite beam #${Math.floor(Math.random() * 80 + 10)}! Cross-border telemetry verified with 0% ground cell dependencies.`;
-      } else if (lower.includes('call') || lower.includes('voice') || lower.includes('video')) {
-        replyText = `Hey, ${firstName} here! I'm ready for the call. Tap the audio or video icon above to start the WebRTC connection.`;
-      } else if (lower.includes('supabase') || lower.includes('database') || lower.includes('rls')) {
-        replyText = `The Row Level Security policies and PostgreSQL migrations are all in place. All user boundaries are strictly enforced!`;
-      } else if (lower.includes('poll')) {
-        replyText = `Great question! I just reviewed the options and cast my vote.`;
-      } else if (lower.includes('hi') || lower.includes('hello') || lower.includes('hey')) {
-        replyText = `Hey there! This is ${firstName}. Delta delivered your message instantly. How can I help?`;
-      } else if (lower.includes('where') || lower.includes('who') || lower.includes('person') || lower.includes('correct')) {
-        replyText = `You're chatting with ${responderName} (@${responder.username}). Messages here are private and delivered directly to my thread.`;
-      } else {
-        replyText = `Got your message! Delivered directly to ${firstName}. Delta's messaging is running smooth and fast.`;
-      }
-
-      const botMsg: Message = {
-        id: `msg-reply-${Date.now()}`,
-        conversation_id: convId,
-        sender_id: responder.id,
-        sender: responder,
-        content: replyText,
-        type: 'text',
-        created_at: new Date().toISOString(),
-        status: 'read',
-        is_satellite: isSatelliteMode,
-        satellite_meta: isSatelliteMode
-          ? {
-              satellite_id: 'STARLINK-V2M-3841',
-              constellation: 'Direct-to-Cell LEO (3GPP Rel-17 NTN)',
-              elevation_deg: 58.1,
-              azimuth_deg: 214.7,
-              signal_quality: 'optimal',
-              latency_ms: 820,
-            }
-          : null,
-      };
-
-      setMessagesMap((prev) => {
-        const updated = [...(prev[convId] || []), botMsg];
-        const res = { ...prev, [convId]: updated };
-        persistState(conversations, res);
-        return res;
-      });
-
-      setConversations((prev) => {
-        const updated = prev.map((c) =>
-          c.id === convId ? { ...c, updated_at: new Date().toISOString(), last_message: botMsg } : c
-        );
-        updated.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-        return updated;
-      });
-
-      // Broadcast reply to other open tabs
-      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-        try {
-          const bc = new BroadcastChannel('delta_realtime_sync');
-          bc.postMessage({ type: 'NEW_MESSAGE', convId, message: botMsg });
-          bc.close();
-        } catch (e) {}
-      }
-    }, 2800);
   };
 
   // Edit message
@@ -1112,9 +959,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
   // Create new conversation
   const createConversation = (targetUserId: string, title?: string, isGroup?: boolean): string => {
-    const targetUser =
-      availableDemoUsers.find((p) => p.id === targetUserId) ||
-      DEMO_PROFILES.find((p) => p.id === targetUserId);
+    const targetUser = availableDemoUsers.find((p) => p.id === targetUserId);
     const existing = conversations.find(
       (c) =>
         !isGroup &&
@@ -1141,7 +986,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       updated_at: new Date().toISOString(),
       unread_count: 0,
       members: [
-        { id: `m-${Date.now()}-1`, conversation_id: newId, user_id: currentUser?.id || 'user-aarav', role: 'admin', joined_at: new Date().toISOString() },
+        { id: `m-${Date.now()}-1`, conversation_id: newId, user_id: currentUser?.id || 'admin', role: 'admin', joined_at: new Date().toISOString() },
         { id: `m-${Date.now()}-2`, conversation_id: newId, user_id: targetUserId, role: 'member', joined_at: new Date().toISOString() },
       ],
     };
@@ -1237,7 +1082,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   const startCall = (targetProfile: Profile, callType: CallType) => {
     const newCall: CallSession = {
       id: `call-${Date.now()}`,
-      caller_id: currentUser?.id || 'user-aarav',
+      caller_id: currentUser?.id || 'caller',
       receiver_id: targetProfile.id,
       caller: currentUser || undefined,
       receiver: targetProfile,
@@ -1261,7 +1106,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       const callMsg: Message = {
         id: `msg-call-${Date.now()}`,
         conversation_id: activeConversation.id,
-        sender_id: currentUser?.id || 'user-aarav',
+        sender_id: currentUser?.id || 'caller',
         content: `${isVideo ? '📹 Video Call' : '📞 Voice Call'}${durationLabel}`,
         type: 'call',
         created_at: new Date().toISOString(),

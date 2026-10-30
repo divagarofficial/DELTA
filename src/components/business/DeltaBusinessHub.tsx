@@ -1594,66 +1594,6 @@ echo "Message ID: " . $result['messages'][0]['id'];
                   </pre>
                 </div>
               )}
-    'to' => '+919876543210',
-    'type' => 'text',
-    'text' => ['body' => 'Your OTP is 749201. Powered by Delta Zero-Charge API.']
-];
-
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    "Authorization: Bearer {$token}",
-    "Content-Type: application/json"
-]);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-$response = curl_exec($ch);
-curl_close($ch);
-
-$result = json_decode($response, true);
-echo "Message ID: " . $result['messages'][0]['id'];
-?>`,
-                        'PHP code'
-                      )
-                    }
-                    className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-md bg-card/80 hover:bg-card text-foreground text-xs font-medium flex items-center gap-1 border border-border/70 shadow-2xs"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>Copy</span>
-                  </button>
-                  <pre className="p-4 rounded-xl bg-muted/50 text-[11px] font-mono text-foreground overflow-x-auto border border-border/60">
-{`<?php
-// PHP cURL: Just swap the endpoint URL and Bearer token
-$phoneNumberId = '104829104859102';
-$token = '${apiKeys[0]?.key || 'dlt_live_apex_token'}';
-$url = "${liveBackendUrl}/v19.0/{$phoneNumberId}/messages";
-
-$payload = [
-    'messaging_product' => 'whatsapp',
-    'to' => '+919876543210',
-    'type' => 'text',
-    'text' => ['body' => 'Your OTP is 749201. Powered by Delta Zero-Charge API.']
-];
-
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    "Authorization: Bearer {$token}",
-    "Content-Type: application/json"
-]);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-$response = curl_exec($ch);
-curl_close($ch);
-
-$result = json_decode($response, true);
-echo "Message ID: " . $result['messages'][0]['id'];
-?>`}
-                  </pre>
-                </div>
-              )}
             </div>
           </div>
         )}

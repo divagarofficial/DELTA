@@ -46,10 +46,20 @@ describe('Delta Business Suite & WhatsApp Cloud API Compatibility Engine', () =>
       expect(entry.recipient).toBe('+919988776655');
     });
 
-    it('computes cumulative savings metrics across millions of simulated messages', () => {
+    it('computes cumulative savings metrics based on dispatched messages', () => {
+      businessStore.recordLedgerEntry({
+        recipient: '+919988776655',
+        category: 'UTILITY',
+        message_type: 'template:order_dispatched',
+        meta_whatsapp_rate: 0.115,
+        delta_rate: 0.0,
+        saved_amount: 0.115,
+        currency: 'INR',
+        status: 'delivered',
+      });
       const metrics = businessStore.getCumulativeSavings();
-      expect(metrics.totalMessages).toBeGreaterThan(100000);
-      expect(metrics.metaCostINR).toBeGreaterThan(40000);
+      expect(metrics.totalMessages).toBeGreaterThanOrEqual(1);
+      expect(metrics.metaCostINR).toBeGreaterThan(0);
       expect(metrics.deltaCostINR).toBe(0.0);
       expect(metrics.savedPercentage).toBe(100);
     });

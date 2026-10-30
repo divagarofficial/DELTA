@@ -18,10 +18,20 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
+  const router = useRouter();
   const { currentUser, isLoading } = useAuth();
   const [showLandingExplicit, setShowLandingExplicit] = useState(false);
+
+  const handleLaunchWebApp = () => {
+    if (currentUser) {
+      setShowLandingExplicit(false);
+    } else {
+      router.push('/auth');
+    }
+  };
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -66,7 +76,7 @@ export default function HomePage() {
               Sign In
             </Link>
             <button
-              onClick={() => setShowLandingExplicit(false)}
+              onClick={handleLaunchWebApp}
               className="px-4 py-2 rounded-xl text-xs font-bold bg-delta-600 text-white hover:bg-delta-700 shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
             >
               <span>Open Web App</span>
@@ -101,7 +111,7 @@ export default function HomePage() {
         {/* CTA Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
           <button
-            onClick={() => setShowLandingExplicit(false)}
+            onClick={handleLaunchWebApp}
             className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-delta-600 text-white text-sm font-bold hover:bg-delta-700 shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             <span>Launch Delta Web</span>

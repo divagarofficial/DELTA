@@ -12,17 +12,17 @@ import { calculateMessageSavings } from './costLedger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const INITIAL_BUSINESS_PROFILE: BusinessProfile = {
-  id: 'biz-apex-01',
-  business_name: 'Apex Retail & Logistics',
+  id: 'biz-default-01',
+  business_name: 'Delta Business Suite',
   phone_number: '+919876500000',
   verified_status: true,
-  vertical: 'E-commerce & Logistics',
-  about: 'Leading omnichannel retail and lightning delivery network.',
+  vertical: 'Technology & Enterprise Solutions',
+  about: 'Unified zero-charge business messaging powered by Delta Business API.',
   description:
-    'Apex Logistics uses Delta Business to power customer notifications, OTPs, tracking links, and interactive live support with 0% delivery markup.',
-  email: 'support@apexlogistics.com',
-  websites: ['https://apexlogistics.com', 'https://track.apexlogistics.com'],
-  avatar_url: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=200&auto=format&fit=crop&q=80',
+    'Delta Business API delivers automated customer communications, OTPs, utility alerts, and interactive support with 0% delivery markup.',
+  email: 'support@delta.chat',
+  websites: ['https://delta.chat'],
+  avatar_url: '/delta_logo_without_text.png',
 };
 
 export const INITIAL_BUSINESS_TEMPLATES: BusinessTemplate[] = [
@@ -149,89 +149,16 @@ export const INITIAL_API_KEYS: BusinessApiKey[] = [
 ];
 
 export const INITIAL_WEBHOOK_CONFIG: BusinessWebhookConfig = {
-  url: 'https://api.apexlogistics.com/v1/integrations/delta/webhooks',
-  verify_token: 'apex_delta_verify_secret_token_99',
-  is_active: true,
+  url: '',
+  verify_token: 'delta_webhook_verify_token',
+  is_active: false,
   events: ['messages', 'message_status', 'reactions'],
-  last_delivery_status: 'success',
-  last_delivery_at: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
 };
 
-// Generate seeded zero-cost ledger entries
-export const INITIAL_LEDGER_ENTRIES: ZeroCostLedgerEntry[] = [
-  {
-    id: 'led-01',
-    timestamp: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
-    recipient: '+919876543210 (Priya Sharma)',
-    category: 'UTILITY',
-    message_type: 'template:order_dispatched',
-    meta_whatsapp_rate: 0.115,
-    delta_rate: 0.0,
-    saved_amount: 0.115,
-    currency: 'INR',
-    status: 'read',
-  },
-  {
-    id: 'led-02',
-    timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    recipient: '+919811223344 (Aarav Patel)',
-    category: 'MARKETING',
-    message_type: 'template:festive_super_sale',
-    meta_whatsapp_rate: 0.8631,
-    delta_rate: 0.0,
-    saved_amount: 0.8631,
-    currency: 'INR',
-    status: 'delivered',
-  },
-  {
-    id: 'led-03',
-    timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    recipient: '+919822334455 (Vikram Malhotra)',
-    category: 'AUTHENTICATION',
-    message_type: 'template:otp_login_verification',
-    meta_whatsapp_rate: 0.115,
-    delta_rate: 0.0,
-    saved_amount: 0.115,
-    currency: 'INR',
-    status: 'read',
-  },
-  {
-    id: 'led-04',
-    timestamp: new Date(Date.now() - 1000 * 60 * 85).toISOString(),
-    recipient: '+919833445566 (Ananya Sen)',
-    category: 'SERVICE',
-    message_type: 'interactive:quick_replies',
-    meta_whatsapp_rate: 0.115,
-    delta_rate: 0.0,
-    saved_amount: 0.115,
-    currency: 'INR',
-    status: 'read',
-  },
-  {
-    id: 'led-05',
-    timestamp: new Date(Date.now() - 1000 * 60 * 140).toISOString(),
-    recipient: '+919844556677 (Rohan Gupta)',
-    category: 'MARKETING',
-    message_type: 'template:festive_super_sale',
-    meta_whatsapp_rate: 0.8631,
-    delta_rate: 0.0,
-    saved_amount: 0.8631,
-    currency: 'INR',
-    status: 'delivered',
-  },
-];
+// Seeded zero-cost ledger entries (empty for clean production)
+export const INITIAL_LEDGER_ENTRIES: ZeroCostLedgerEntry[] = [];
 
-export const INITIAL_MEDIA_ITEMS: BusinessMediaItem[] = [
-  {
-    id: 'media_delta_default',
-    filename: 'apex_catalog.jpg',
-    mime_type: 'image/jpeg',
-    file_size: 142000,
-    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-    url: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800',
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-];
+export const INITIAL_MEDIA_ITEMS: BusinessMediaItem[] = [];
 
 class BusinessStore {
   private profile: BusinessProfile = { ...INITIAL_BUSINESS_PROFILE };
@@ -242,12 +169,12 @@ class BusinessStore {
   private mediaItems: BusinessMediaItem[] = [...INITIAL_MEDIA_ITEMS];
   private incomingMessageQueue: QueuedBusinessApiMessage[] = [];
 
-  // Aggregated pre-seeded stats to represent realistic production usage
+  // Production base stats
   private baseStats = {
-    marketingCount: 38450,
-    utilityCount: 84200,
-    authCount: 16800,
-    serviceCount: 9400,
+    marketingCount: 0,
+    utilityCount: 0,
+    authCount: 0,
+    serviceCount: 0,
   };
 
   constructor() {
