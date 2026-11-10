@@ -1,7 +1,23 @@
 import { describe, it, expect } from 'vitest';
-import { generateSafetyNumber, DELTA_SECURITY_SUMMARY } from '@/lib/security';
+import { generateSafetyNumber, DELTA_SECURITY_SUMMARY, hashPassword } from '@/lib/security';
 
 describe('Delta Security & Privacy Protocol', () => {
+  it('hashes passwords securely using SHA-256 with deterministic salt', async () => {
+    const rawPassword = 'MySecretPassword123!';
+    const hash1 = await hashPassword(rawPassword);
+    const hash2 = await hashPassword(rawPassword);
+
+    expect(hash1).toBeDefined();
+    expect(hash1.length).toBeGreaterThan(20);
+    // Deterministic match
+    expect(hash1).toBe(hash2);
+    // Never matches plaintext
+    expect(hash1).not.toBe(rawPassword);
+
+    // Different passwords produce different hashes
+    const differentHash = await hashPassword('DifferentPassword456!');
+    expect(hash1).not.toBe(differentHash);
+  });
   it('generates a 60-digit deterministic safety number in 12 blocks of 5 digits', () => {
     const blocks = generateSafetyNumber('user-priya-123', 'user-arjun-456');
     expect(blocks).toHaveLength(12);

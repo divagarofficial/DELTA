@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Sparkles, Copy, Check, Globe, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDuration } from '@/lib/utils';
 import { transcribeAudioVoiceNote } from '@/lib/ai/deltaAiEngine';
@@ -10,6 +10,7 @@ interface VoiceNotePlayerProps {
   isOwn?: boolean;
   senderName?: string;
   initialTranscript?: string;
+  audioUrl?: string;
 }
 
 export function VoiceNotePlayer({
@@ -17,10 +18,13 @@ export function VoiceNotePlayer({
   isOwn = false,
   senderName = 'Friend',
   initialTranscript,
+  audioUrl,
 }: VoiceNotePlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<1 | 1.5 | 2>(1);
+  const [actualDuration, setActualDuration] = useState<number>(durationSeconds);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Whisper AI Transcription State
   const [showTranscript, setShowTranscript] = useState(false);
@@ -37,8 +41,44 @@ export function VoiceNotePlayer({
   const [showTranslation, setShowTranslation] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Playback timer taking speed into account
+  // Initialize and synchronize real HTMLAudioElement if audioUrl is provided
   useEffect(() => {
+    if (!audioUrl) return;
+
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    audio.onloadedmetadata = () => {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        setActualDuration(Math.ceil(audio.duration));
+      }
+    };
+
+    audio.ontimeupdate = () => {
+      if (audio.duration && !isNaN(audio.duration)) {
+        setProgress(audio.currentTime / audio.duration);
+      }
+    };
+
+    audio.onended = () => {
+      setIsPlaying(false);
+      setProgress(0);
+    };
+
+    audio.onplay = () => setIsPlaying(true);
+    audio.onpause = () => setIsPlaying(false);
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+      audioRef.current = null;
+    };
+  }, [audioUrl]);
+
+  // Fallback timer if audioUrl is not provided (or for testing)
+  useEffect(() => {
+    if (audioUrl) return; // Managed by audio element events
+
     let timer: NodeJS.Timeout | undefined;
     if (isPlaying) {
       const stepInterval = 400 / playbackSpeed;
@@ -55,20 +95,49 @@ export function VoiceNotePlayer({
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isPlaying, playbackSpeed]);
+  }, [isPlaying, playbackSpeed, audioUrl]);
 
   const toggleSpeed = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (playbackSpeed === 1) setPlaybackSpeed(1.5);
-    else if (playbackSpeed === 1.5) setPlaybackSpeed(2);
-    else setPlaybackSpeed(1);
+    let nextSpeed: 1 | 1.5 | 2 = 1;
+    if (playbackSpeed === 1) nextSpeed = 1.5;
+    else if (playbackSpeed === 1.5) nextSpeed = 2;
+    else nextSpeed = 1;
+
+    setPlaybackSpeed(nextSpeed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = nextSpeed;
+    }
+  };
+
+  const handleTogglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch((err) => {
+          console.warn('Audio play request failed or blocked by browser autoplay:', err);
+          setIsPlaying(true);
+        });
+      }
+    } else {
+      setIsPlaying(!isPlaying);
+    }
   };
 
   const handleBarClick = (index: number, e: React.MouseEvent) => {
     e.stopPropagation();
     const newProgress = Math.max(0.05, (index + 1) / bars.length);
     setProgress(newProgress);
-    if (!isPlaying) setIsPlaying(true);
+    if (audioRef.current && audioRef.current.duration) {
+      audioRef.current.currentTime = newProgress * audioRef.current.duration;
+      if (!isPlaying) {
+        audioRef.current.play().catch(() => {});
+      }
+    } else if (!isPlaying) {
+      setIsPlaying(true);
+    }
   };
 
   const handleToggleTranscript = async (e: React.MouseEvent) => {
@@ -107,7 +176,7 @@ export function VoiceNotePlayer({
       <div className="flex items-center gap-3">
         {/* Play/Pause Button */}
         <button
-          onClick={() => setIsPlaying(!isPlaying)}
+          onClick={handleTogglePlay}
           className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 shadow-sm shrink-0 ${
             isOwn
               ? 'bg-white text-delta-700 hover:bg-white/90 shadow-white/20'
@@ -158,7 +227,7 @@ export function VoiceNotePlayer({
               isOwn ? 'text-white/80' : 'text-muted-foreground'
             }`}
           >
-            <span>{formatDuration(progress * durationSeconds)}</span>
+            <span>{formatDuration(progress * actualDuration)}</span>
             <div className="flex items-center gap-1.5">
               <button
                 onClick={toggleSpeed}

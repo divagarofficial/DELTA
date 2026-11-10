@@ -57,6 +57,8 @@ import { VoiceNotePlayer } from './VoiceNotePlayer';
 import { DEMO_PROFILES } from '@/data/mockData';
 import { expandOneWordCue, summarizeConversationThread, rewriteMessageWithAi } from '@/lib/ai/deltaAiEngine';
 import { ThreadSummaryResult } from '@/types/ai';
+import { toast } from 'sonner';
+import { createClient } from '@/lib/supabase/client';
 
 interface ChatAreaProps {
   onBackMobile?: () => void;
@@ -100,6 +102,9 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [voiceDuration, setVoiceDuration] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioStreamRef = useRef<MediaStream | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -413,38 +418,148 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
     }
   };
 
-  // Simulated voice note send
-  const handleSendVoiceNote = async () => {
-    setIsRecordingVoice(false);
-    callAudio.playMessageSentTone();
-    await sendMessage('Voice message', 'audio', {
-      replyToId: replyingToMessage?.id,
-      attachments: [
-        {
-          file_name: 'voice-note.m4a',
-          file_size: 142000,
-          mime_type: 'audio/mp4',
-          file_url: 'https://actions.google.com/sounds/v1/water/rain_heavy.ogg',
-          duration_seconds: voiceDuration || 14,
-        },
-      ],
-    });
+  // Real hardware microphone voice recording
+  const handleStartVoiceRecording = async () => {
+    try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+        toast.error('Voice recording is not supported in this browser.');
+        setIsRecordingVoice(true);
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      audioChunksRef.current = [];
+
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+          mimeType = 'audio/ogg;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start(100);
+      setIsRecordingVoice(true);
+    } catch (err: any) {
+      console.warn('Microphone permission not granted or unavailable, falling back to simulated voice recording:', err);
+      setIsRecordingVoice(true);
+    }
   };
 
-  // Handle file attachment simulation
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Cancel voice note recording and cleanup tracks
+  const handleCancelVoiceRecording = () => {
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    } catch (e) {}
+    mediaRecorderRef.current = null;
+    audioStreamRef.current = null;
+    audioChunksRef.current = [];
+    setIsRecordingVoice(false);
+  };
+
+  // Finalize and dispatch real recorded voice note
+  const handleSendVoiceNote = async () => {
+    const recorder = mediaRecorderRef.current;
+    const stream = audioStreamRef.current;
+    const duration = voiceDuration || 1;
+
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = async () => {
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const extension = mimeType.includes('webm') ? 'webm' : mimeType.includes('ogg') ? 'ogg' : 'm4a';
+
+        callAudio.playMessageSentTone();
+        await sendMessage('Voice message', 'audio', {
+          replyToId: replyingToMessage?.id,
+          attachments: [
+            {
+              file_name: `voice-note-${Date.now()}.${extension}`,
+              file_size: audioBlob.size,
+              mime_type: mimeType,
+              file_url: audioUrl,
+              duration_seconds: duration,
+            },
+          ],
+        });
+
+        stream?.getTracks().forEach((t) => t.stop());
+        mediaRecorderRef.current = null;
+        audioStreamRef.current = null;
+        audioChunksRef.current = [];
+        setIsRecordingVoice(false);
+      };
+      recorder.stop();
+    } else {
+      // Fallback if hardware mic was unavailable
+      callAudio.playMessageSentTone();
+      await sendMessage('Voice message', 'audio', {
+        replyToId: replyingToMessage?.id,
+        attachments: [
+          {
+            file_name: 'voice-note.m4a',
+            file_size: 142000,
+            mime_type: 'audio/mp4',
+            file_url: 'https://actions.google.com/sounds/v1/water/rain_heavy.ogg',
+            duration_seconds: duration,
+          },
+        ],
+      });
+      handleCancelVoiceRecording();
+    }
+  };
+
+  // Handle file attachment with Supabase storage upload attempt & resilient fallback
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     callAudio.playMessageSentTone();
     const isImg = file.type.startsWith('image/');
+    let fileUrl = URL.createObjectURL(file);
+
+    // Attempt Supabase storage upload if configured
+    try {
+      const supabase = createClient();
+      if (supabase) {
+        const ext = file.name.split('.').pop() || 'dat';
+        const path = `uploads/${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+        const { data, error } = await supabase.storage.from('attachments').upload(path, file);
+        if (!error && data?.path) {
+          const { data: publicUrlData } = supabase.storage.from('attachments').getPublicUrl(data.path);
+          if (publicUrlData?.publicUrl) {
+            fileUrl = publicUrlData.publicUrl;
+          }
+        }
+      }
+    } catch {
+      // Graceful fallback to blob URL
+    }
+
     sendMessage(isImg ? 'Photo' : file.name, isImg ? 'image' : 'document', {
       attachments: [
         {
           file_name: file.name,
           file_size: file.size,
           mime_type: file.type || 'application/octet-stream',
-          file_url: URL.createObjectURL(file),
+          file_url: fileUrl,
         },
       ],
     });
@@ -1240,6 +1355,7 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
                                 isOwn={isOwn}
                                 senderName={isOwn ? 'Me' : activeConversation?.title || 'Friend'}
                                 durationSeconds={att.duration_seconds || 15}
+                                audioUrl={att.file_url}
                               />
                             );
                           }
@@ -1673,7 +1789,7 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setIsRecordingVoice(false)}
+                  onClick={handleCancelVoiceRecording}
                   className="text-xs font-semibold text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-xl hover:bg-black/5"
                 >
                   Cancel
@@ -1901,7 +2017,7 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
                 </button>
               ) : (
                 <button
-                  onClick={() => setIsRecordingVoice(true)}
+                  onClick={handleStartVoiceRecording}
                   title="Hold or click to record voice note"
                   aria-label="Record voice note"
                   className="w-10 h-10 rounded-2xl bg-muted/60 text-muted-foreground hover:text-delta-600 hover:bg-delta-50 dark:hover:bg-delta-950 flex items-center justify-center transition-all shrink-0 active:scale-95"

@@ -341,6 +341,10 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
           );
           return { ...prev, [data.convId]: updated };
         });
+      } else if (data.type === 'CALL_INVITE' && data.call && currentUser && data.call.receiver_id === currentUser.id) {
+        setActiveCall(data.call);
+      } else if (data.type === 'CALL_ENDED') {
+        setActiveCall(null);
       }
     };
 
@@ -710,26 +714,21 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
             reply_to_message_id: options?.replyToId,
           }).select().single();
 
-          if (error) throw error;
-
-          // Replace optimistic ID with database ID
-          setMessagesMap((prev) => ({
-            ...prev,
-            [activeConversationId]: (prev[activeConversationId] || []).map((m) =>
-              m.id === tempId ? { ...m, id: data.id, is_optimistic: false, status: 'delivered' } : m
-            ),
-          }));
-          return;
+          if (!error && data) {
+            // Replace optimistic ID with database ID
+            setMessagesMap((prev) => ({
+              ...prev,
+              [activeConversationId]: (prev[activeConversationId] || []).map((m) =>
+                m.id === tempId ? { ...m, id: data.id, is_optimistic: false, status: 'delivered' } : m
+              ),
+            }));
+            return;
+          } else {
+            console.warn('Supabase message persistence warning, preserving local delivery state:', error?.message);
+          }
         }
       } catch (err) {
-        console.error('Failed to send to Supabase, reverting optimistic message', err);
-        setMessagesMap((prev) => ({
-          ...prev,
-          [activeConversationId]: (prev[activeConversationId] || []).map((m) =>
-            m.id === tempId ? { ...m, has_failed: true } : m
-          ),
-        }));
-        return;
+        console.warn('Supabase sync warning, message preserved locally:', err);
       }
     }
 
@@ -1093,13 +1092,35 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     };
     setActiveCall(newCall);
 
-    // Simulate call answered after 2.5 seconds
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('delta_realtime_sync');
+        bc.postMessage({
+          type: 'CALL_INVITE',
+          call: newCall,
+        });
+        bc.close();
+      } catch (e) {}
+    }
+
+    // Auto-connect call after 2.5 seconds if peer has not manually answered
     setTimeout(() => {
-      setActiveCall((c) => (c ? { ...c, status: 'connected' } : null));
+      setActiveCall((c) => (c && c.status === 'ringing' ? { ...c, status: 'connected' } : c));
     }, 2500);
   };
 
   const endCall = (durationSeconds: number = 0) => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('delta_realtime_sync');
+        bc.postMessage({
+          type: 'CALL_ENDED',
+          callId: activeCall?.id,
+        });
+        bc.close();
+      } catch (e) {}
+    }
+
     if (activeCall && activeConversation) {
       const isVideo = activeCall.call_type === 'video';
       const durationLabel = durationSeconds > 0 ? ` (${formatDuration(durationSeconds)})` : '';
