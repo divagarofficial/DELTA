@@ -35,7 +35,7 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
     togglePinConversation,
     toggleMuteConversation,
   } = useMessaging();
-  const { currentUser, availableDemoUsers } = useAuth();
+  const { currentUser, registeredUsers } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'groups' | 'channels' | 'pinned'>('all');
@@ -190,9 +190,9 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
               .slice(0, 7)
               .map((conv) => {
                 const isSelected = activeConversationId === conv.id;
-                const partner = availableDemoUsers.find((p) =>
+                const partner = registeredUsers.find((p) =>
                   conv.members?.some((m) => m.user_id === p.id && p.id !== currentUser?.id)
-                ) || availableDemoUsers.find((p) => p.display_name === conv.title);
+                ) || registeredUsers.find((p) => p.display_name === conv.title);
                 const isOnline = partner?.presence_status === 'online';
                 const firstName = (conv.title || '').split(' ')[0];
 
@@ -284,10 +284,10 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
             // Resolve contact presence
             const partner =
               conv.type === 'direct'
-                ? availableDemoUsers.find((p) =>
+                ? registeredUsers.find((p) =>
                     conv.members?.some((m) => m.user_id === p.id && p.id !== currentUser?.id)
                   ) ||
-                  availableDemoUsers.find((p) => p.display_name === conv.title)
+                  registeredUsers.find((p) => p.display_name === conv.title)
                 : null;
             const isOnline = partner?.presence_status === 'online';
 

@@ -35,7 +35,7 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
     addContactByPhone,
     isContactsPickerSupported,
   } = useMessaging();
-  const { currentUser, availableDemoUsers } = useAuth();
+  const { currentUser, registeredUsers } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'direct' | 'group' | 'contacts'>('contacts');
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,7 +53,7 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
   if (!isOpen) return null;
 
   // Filter other profiles (including registered users)
-  const candidateUsers = availableDemoUsers.filter((p) => p.id !== currentUser?.id);
+  const candidateUsers = registeredUsers.filter((p) => p.id !== currentUser?.id);
   const filteredUsers = candidateUsers.filter((p) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();

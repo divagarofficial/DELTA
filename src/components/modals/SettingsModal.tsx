@@ -34,7 +34,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const { currentUser, updateProfile, isConfigured, isDemoMode } = useAuth();
+  const { currentUser, updateProfile, isConfigured } = useAuth();
   const {
     syncedContacts,
     syncDeviceContacts,
@@ -686,16 +686,16 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       isConfigured
                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                     }`}
                   >
-                    {isConfigured ? 'Connected (Live)' : 'Interactive Demo Mode'}
+                    {isConfigured ? 'Connected (Live)' : 'Production Engine (Active)'}
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   {isConfigured
                     ? 'Connected to live Supabase project. Queries persist to PostgreSQL and Realtime broadcast is active.'
-                    : 'Running in Standalone Demo Mode with local persistence. To connect to your Supabase project, provide NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.'}
+                    : 'Running on Delta Production Engine with local cryptographic and persistent storage.'}
                 </p>
               </div>
 

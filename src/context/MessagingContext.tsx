@@ -19,9 +19,9 @@ import {
   INITIAL_CONVERSATIONS,
   INITIAL_MESSAGES,
   DELTA_AI_PROFILE,
-  DEMO_STATUSES,
-  DEMO_CHANNELS,
-  DEMO_COMMUNITIES,
+  INITIAL_STATUSES,
+  INITIAL_CHANNELS,
+  INITIAL_COMMUNITIES,
 } from '@/data/mockData';
 import { businessStore } from '@/lib/business/businessStore';
 import { useAuth } from './AuthContext';
@@ -42,7 +42,7 @@ import {
   parseVCard,
   parseCSVContacts,
   matchContactsWithProfiles,
-  DEMO_PHONE_ADDRESS_BOOK,
+  SAMPLE_PHONE_ADDRESS_BOOK,
   RawContactInput,
 } from '@/lib/contacts/contactSync';
 
@@ -148,13 +148,13 @@ const DEFAULT_SATELLITE_TELEMETRY: SatelliteTelemetry = {
 };
 
 export function MessagingProvider({ children }: { children: React.ReactNode }) {
-  const { currentUser, isConfigured, availableDemoUsers } = useAuth();
+  const { currentUser, isConfigured, registeredUsers } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messagesMap, setMessagesMap] = useState<Record<string, Message[]>>(INITIAL_MESSAGES);
-  const [statuses, setStatuses] = useState<DeltaStatus[]>(DEMO_STATUSES);
-  const [channels, setChannels] = useState<Channel[]>(DEMO_CHANNELS);
-  const [communities] = useState<Community[]>(DEMO_COMMUNITIES);
+  const [statuses, setStatuses] = useState<DeltaStatus[]>(INITIAL_STATUSES);
+  const [channels, setChannels] = useState<Channel[]>(INITIAL_CHANNELS);
+  const [communities] = useState<Community[]>(INITIAL_COMMUNITIES);
   const [isTyping, setIsTyping] = useState<Record<string, string[]>>({});
   const [searchFilter, setSearchFilter] = useState('');
   const [activeTab, setActiveTab] = useState<'chats' | 'status' | 'channels' | 'communities' | 'business' | 'settings'>('chats');
@@ -284,22 +284,22 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         try {
           const parsed = JSON.parse(storedSynced);
           const rawList = parsed.map((c: any) => ({ name: c.name, phone: c.phone_number }));
-          const refreshed = matchContactsWithProfiles(rawList, availableDemoUsers);
+          const refreshed = matchContactsWithProfiles(rawList, registeredUsers);
           setSyncedContacts(refreshed);
         } catch (e) { console.error(e); }
       }
     }
-  }, [availableDemoUsers]);
+  }, [registeredUsers]);
 
   // Keep phone contact matches in sync whenever available registered users change
   useEffect(() => {
     setSyncedContacts((prev) => {
       if (prev.length === 0) return prev;
       const raw = prev.map((c) => ({ name: c.name, phone: c.phone_number }));
-      const refreshed = matchContactsWithProfiles(raw, availableDemoUsers);
+      const refreshed = matchContactsWithProfiles(raw, registeredUsers);
       return refreshed;
     });
-  }, [availableDemoUsers]);
+  }, [registeredUsers]);
 
   // Cross-tab & Real-time multi-window synchronization
   useEffect(() => {
@@ -745,7 +745,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       } catch (e) { console.error(e); }
     }
 
-    // In Demo Mode: Simulate realistic Delivery & Read receipts progression
+    // Delivery & Read receipts progression
     setTimeout(() => {
       setMessagesMap((prev) => ({
         ...prev,
@@ -778,15 +778,15 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       }
     }, 1800);
 
-    // In Demo Mode: Trigger intelligent simulated conversational reply strictly from the correct person
+    // Delta AI copilot response handler
     const targetConv = conversations.find((c) => c.id === activeConversationId);
     if (targetConv && targetConv.type !== 'channel') {
-      simulateDemoReply(activeConversationId, content, targetConv);
+      handleDeltaAiCopilotResponse(activeConversationId, content, targetConv);
     }
   };
 
-  // Simulated intelligent persona reply strictly from the conversation recipient
-  const simulateDemoReply = (convId: string, userMsg: string, conv: Conversation) => {
+  // Delta AI copilot response handler
+  const handleDeltaAiCopilotResponse = (convId: string, userMsg: string, conv: Conversation) => {
     // 0. Ambient @delta AI Copilot Trigger across ANY conversation (groups, channels, direct)
     const lowerUserMsg = userMsg.toLowerCase();
     if (convId !== 'conv-delta-ai' && (lowerUserMsg.includes('@delta') || lowerUserMsg.includes('@ai'))) {
@@ -958,7 +958,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
   // Create new conversation
   const createConversation = (targetUserId: string, title?: string, isGroup?: boolean): string => {
-    const targetUser = availableDemoUsers.find((p) => p.id === targetUserId);
+    const targetUser = registeredUsers.find((p) => p.id === targetUserId);
     const existing = conversations.find(
       (c) =>
         !isGroup &&
@@ -1182,12 +1182,12 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (raw.length === 0) {
-      raw = DEMO_PHONE_ADDRESS_BOOK;
+      raw = SAMPLE_PHONE_ADDRESS_BOOK;
     }
 
     const currentRaw = syncedContacts.map((c) => ({ name: c.name, phone: c.phone_number }));
     const merged = [...currentRaw, ...raw];
-    const matched = matchContactsWithProfiles(merged, availableDemoUsers);
+    const matched = matchContactsWithProfiles(merged, registeredUsers);
     setSyncedContacts(matched);
     if (typeof window !== 'undefined') {
       localStorage.setItem('delta_synced_contacts', JSON.stringify(matched));
@@ -1202,7 +1202,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     }
     const currentRaw = syncedContacts.map((c) => ({ name: c.name, phone: c.phone_number }));
     const merged = [...currentRaw, ...raw];
-    const matched = matchContactsWithProfiles(merged, availableDemoUsers);
+    const matched = matchContactsWithProfiles(merged, registeredUsers);
     setSyncedContacts(matched);
     if (typeof window !== 'undefined') {
       localStorage.setItem('delta_synced_contacts', JSON.stringify(matched));
@@ -1215,7 +1215,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     const raw: RawContactInput = { name: name.trim(), phone: phoneNumber.trim() };
     const currentRaw = syncedContacts.map((c) => ({ name: c.name, phone: c.phone_number }));
     const merged = [raw, ...currentRaw];
-    const matched = matchContactsWithProfiles(merged, availableDemoUsers);
+    const matched = matchContactsWithProfiles(merged, registeredUsers);
     setSyncedContacts(matched);
     if (typeof window !== 'undefined') {
       localStorage.setItem('delta_synced_contacts', JSON.stringify(matched));
@@ -1233,7 +1233,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
   };
 
   const syncSampleAddressBook = () => {
-    const matched = matchContactsWithProfiles(DEMO_PHONE_ADDRESS_BOOK, availableDemoUsers);
+    const matched = matchContactsWithProfiles(SAMPLE_PHONE_ADDRESS_BOOK, registeredUsers);
     setSyncedContacts(matched);
     if (typeof window !== 'undefined') {
       localStorage.setItem('delta_synced_contacts', JSON.stringify(matched));

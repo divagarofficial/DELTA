@@ -23,13 +23,16 @@ export const DELTA_AI_PROFILE: Profile = {
  * Production initial states: 0 mock accounts, 0 mock conversations, 0 mock messages.
  * All user accounts are created via real Sign Up / Supabase Auth.
  */
-export const DEMO_PROFILES: Profile[] = [];
+export const INITIAL_PROFILES: Profile[] = [];
+export const INITIAL_COMMUNITIES: Community[] = [];
+export const INITIAL_CHANNELS: Channel[] = [];
+export const INITIAL_STATUSES: DeltaStatus[] = [];
 
-export const DEMO_COMMUNITIES: Community[] = [];
-
-export const DEMO_CHANNELS: Channel[] = [];
-
-export const DEMO_STATUSES: DeltaStatus[] = [];
+// Backwards-compatible aliases
+export const DEMO_PROFILES: Profile[] = INITIAL_PROFILES;
+export const DEMO_COMMUNITIES: Community[] = INITIAL_COMMUNITIES;
+export const DEMO_CHANNELS: Channel[] = INITIAL_CHANNELS;
+export const DEMO_STATUSES: DeltaStatus[] = INITIAL_STATUSES;
 
 export const INITIAL_CONVERSATIONS: Conversation[] = [];
 

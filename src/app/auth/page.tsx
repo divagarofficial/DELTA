@@ -21,7 +21,7 @@ import Link from 'next/link';
 function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn, signUp, availableDemoUsers, switchDemoUser, isDemoMode, isConfigured } = useAuth();
+  const { signIn, signUp } = useAuth();
 
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
@@ -98,11 +98,6 @@ function AuthPageContent() {
     }
   };
 
-  const handleSelectDemoUser = (userId: string) => {
-    switchDemoUser(userId);
-    window.location.href = '/';
-  };
-
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center py-10 px-4 selection:bg-delta-500/20 selection:text-delta-600 overflow-y-auto">
       <div className="w-full max-w-md flex flex-col items-center my-auto">
@@ -124,14 +119,9 @@ function AuthPageContent() {
                   : 'Mobile number is mandatory and serves as your key identity.'}
               </p>
             </div>
-            <span
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
-                isDemoMode
-                  ? 'bg-delta-50 text-delta-800 dark:bg-delta-950 dark:text-delta-300 border-delta-200 dark:border-delta-800'
-                  : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-              }`}
-            >
-              {isDemoMode ? 'Demo Mode' : 'Production Mode'}
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Production Mode
             </span>
           </div>
 
@@ -306,33 +296,6 @@ function AuthPageContent() {
                 : 'Already have an account? Sign In'}
             </button>
           </div>
-
-          {/* Quick Demo Personas (Only in Demo Mode) */}
-          {isDemoMode && availableDemoUsers.length > 0 && (
-            <div className="mt-6 pt-5 border-t border-border">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 text-center">
-                Quick Test Personas (Mobile / Username)
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {availableDemoUsers.slice(0, 4).map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => handleSelectDemoUser(p.id)}
-                    className="p-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-left text-xs transition-colors flex items-center gap-2"
-                  >
-                    <div className="w-7 h-7 rounded-full overflow-hidden bg-card shrink-0">
-                      <img src={p.avatar_url || ''} alt="" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="truncate min-w-0">
-                      <p className="font-semibold text-foreground truncate">{p.display_name}</p>
-                      <p className="text-[10px] text-delta-600 font-mono truncate">{p.phone_number}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">@{p.username}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

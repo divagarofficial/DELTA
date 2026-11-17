@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Profile } from '@/types';
-import { DEMO_PROFILES } from '@/data/mockData';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { normalizePhoneNumber, isValidPhoneNumber } from '@/lib/utils';
 import { hashPassword } from '@/lib/security';
@@ -19,18 +18,20 @@ export interface AuthContextType {
   currentUser: Profile | null;
   isLoading: boolean;
   isConfigured: boolean;
-  isDemoMode: boolean;
+  isDemoMode: false;
   signIn: (identifier: string, password?: string) => Promise<{ error?: string }>;
   signUp: (params: SignUpParams) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  switchAccount: (userId: string) => void;
   switchDemoUser: (userId: string) => void;
+  registeredUsers: Profile[];
   availableDemoUsers: Profile[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper to retrieve custom registered profiles from localStorage
+// Helper to retrieve registered profiles from local storage
 function getStoredProfiles(): Profile[] {
   if (typeof window === 'undefined') return [];
   const profiles: Profile[] = [];
@@ -57,21 +58,19 @@ function getStoredProfiles(): Profile[] {
       }
     }
   } catch (e) {
-    console.error('Error reading stored custom profiles:', e);
+    console.error('Error reading registered profiles:', e);
   }
   return profiles;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const isProductionMode = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'false';
   const isConfigured = isSupabaseConfigured();
 
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDemoMode, setIsDemoMode] = useState(!isProductionMode && !isConfigured);
   const [customProfiles, setCustomProfiles] = useState<Profile[]>([]);
 
-  // Synchronize stored custom profiles
+  // Synchronize stored registered profiles
   const refreshCustomProfiles = useCallback(() => {
     const stored = getStoredProfiles();
     setCustomProfiles(stored);
@@ -97,7 +96,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               if (profile) {
                 setCurrentUser(profile);
-                setIsDemoMode(false);
                 setIsLoading(false);
                 return;
               }
@@ -116,16 +114,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // If user explicitly signed out, respect their sign out
       if (storedUserId === 'signed_out') {
         setCurrentUser(null);
-        setIsDemoMode(!isProductionMode);
         setIsLoading(false);
         return;
       }
 
-      // Discover user from stored profiles
-      const allProfiles = [...DEMO_PROFILES, ...stored];
-      let found: Profile | undefined = allProfiles.find((p) => p.id === storedUserId);
+      // Discover user from registered profiles
+      let found: Profile | undefined = stored.find((p) => p.id === storedUserId);
 
-      // Check custom registered profiles directly from localStorage
+      // Check registered profiles directly from localStorage
       if (!found && storedUserId && typeof window !== 'undefined') {
         const customStored = localStorage.getItem(`delta_custom_profile_${storedUserId}`);
         if (customStored) {
@@ -143,14 +139,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(null);
       }
 
-      setIsDemoMode(!isProductionMode);
       setIsLoading(false);
     }
 
     initAuth();
-  }, [isConfigured, isProductionMode]);
+  }, [isConfigured]);
 
   // Registered accounts
+  const registeredUsers = customProfiles;
   const availableDemoUsers = customProfiles;
 
   // Sign In using Mobile Number OR Username
@@ -194,7 +190,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 .eq('id', data.user.id)
                 .single();
               if (fullProfile) setCurrentUser(fullProfile);
-              setIsDemoMode(false);
               setIsLoading(false);
               return {};
             }
@@ -206,10 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Local / Registered Profiles verification
-    const allProfiles = [
-      ...DEMO_PROFILES,
-      ...getStoredProfiles(),
-    ];
+    const allProfiles = getStoredProfiles();
 
     const match = allProfiles.find((p) => {
       // 1. Phone match
@@ -250,9 +242,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(match);
     if (typeof window !== 'undefined') {
       localStorage.setItem('delta_session_user_id', match.id);
-      localStorage.setItem('delta_demo_user_id', match.id);
+      localStorage.removeItem('delta_demo_user_id');
     }
-    setIsDemoMode(!isProductionMode);
     setIsLoading(false);
     return {};
   };
@@ -300,11 +291,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const normalizedPhone = normalizePhoneNumber(phoneNumber);
     const cleanedDigits = normalizedPhone.replace(/\D/g, '').slice(-10);
 
-    // Duplicate check across all demo and custom registered profiles
-    const allProfiles = [
-      ...DEMO_PROFILES,
-      ...getStoredProfiles(),
-    ];
+    // Duplicate check across registered profiles
+    const allProfiles = getStoredProfiles();
 
     const phoneExists = allProfiles.some((p) =>
       p.phone_number?.replace(/\D/g, '').endsWith(cleanedDigits)
@@ -348,11 +336,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (typeof window !== 'undefined') {
               localStorage.setItem(`delta_custom_profile_${data.user.id}`, JSON.stringify(newProfile));
               localStorage.setItem('delta_session_user_id', data.user.id);
-              localStorage.setItem('delta_demo_user_id', data.user.id);
+              localStorage.removeItem('delta_demo_user_id');
             }
             refreshCustomProfiles();
             setCurrentUser(newProfile);
-            setIsDemoMode(!isProductionMode);
             setIsLoading(false);
             return {};
           }
@@ -393,12 +380,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       // 4. Set current session ID
       localStorage.setItem('delta_session_user_id', newUserId);
-      localStorage.setItem('delta_demo_user_id', newUserId);
+      localStorage.removeItem('delta_demo_user_id');
     }
 
     refreshCustomProfiles();
     setCurrentUser(newProfile);
-    setIsDemoMode(!isProductionMode);
     setIsLoading(false);
     return {};
   };
@@ -413,7 +399,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     if (typeof window !== 'undefined') {
       localStorage.setItem('delta_session_user_id', 'signed_out');
-      localStorage.setItem('delta_demo_user_id', 'signed_out');
+      localStorage.removeItem('delta_demo_user_id');
     }
     setCurrentUser(null);
     setIsLoading(false);
@@ -435,15 +421,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const switchDemoUser = (userId: string) => {
+  const switchAccount = (userId: string) => {
     const target = customProfiles.find((p) => p.id === userId);
     if (target) {
       setCurrentUser(target);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('delta_demo_user_id', target.id);
+        localStorage.setItem('delta_session_user_id', target.id);
+        localStorage.removeItem('delta_demo_user_id');
       }
     }
   };
+
+  const switchDemoUser = switchAccount;
 
   return (
     <AuthContext.Provider
@@ -451,12 +440,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentUser,
         isLoading,
         isConfigured,
-        isDemoMode,
+        isDemoMode: false,
         signIn,
         signUp,
         signOut,
         updateProfile,
+        switchAccount,
         switchDemoUser,
+        registeredUsers,
         availableDemoUsers,
       }}
     >

@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
       message_id: messageId,
     });
 
-    // Queue for Realtime Multi-Window & Demo Mode Bridge
+    // Queue for Realtime Multi-Window & Production Bridge
     businessStore.queueIncomingMessage({
       id: messageId,
       to: body.to,

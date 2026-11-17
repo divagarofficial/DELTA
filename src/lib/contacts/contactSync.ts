@@ -175,9 +175,9 @@ export function matchContactsWithProfiles(
 
 /**
  * Realistic default phone address book sample for instant 1-click device sync
- * matching known registered users on Delta and contacts to invite.
+ * matching registered users on Delta and contacts to invite.
  */
-export const DEMO_PHONE_ADDRESS_BOOK: RawContactInput[] = [
+export const SAMPLE_PHONE_ADDRESS_BOOK: RawContactInput[] = [
   { name: 'Priya Sharma (Colleague)', phone: '+91 98111 22334' },
   { name: 'Arjun Patel (Design Lead)', phone: '+91 97222 33445' },
   { name: 'Ananya Iyer (Mobile Dev)', phone: '+91 96333 44556' },
@@ -185,3 +185,5 @@ export const DEMO_PHONE_ADDRESS_BOOK: RawContactInput[] = [
   { name: 'Rajesh Gupta (Vendor)', phone: '+91 98765 00112' },
   { name: 'Kavita Menon (College Friend)', phone: '+91 98200 77665' },
 ];
+
+export const DEMO_PHONE_ADDRESS_BOOK = SAMPLE_PHONE_ADDRESS_BOOK;

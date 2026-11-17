@@ -54,7 +54,6 @@ import { callAudio } from '@/lib/callAudio';
 import { Message, Profile, MessageType } from '@/types';
 import { DeltaLogoWithText, DeltaLogoWithoutText } from '@/components/brand/DeltaLogo';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
-import { DEMO_PROFILES } from '@/data/mockData';
 import { expandOneWordCue, summarizeConversationThread, rewriteMessageWithAi } from '@/lib/ai/deltaAiEngine';
 import { ThreadSummaryResult } from '@/types/ai';
 import { toast } from 'sonner';
@@ -92,7 +91,7 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
     cancelScheduledTask,
     executeScheduledTaskNow,
   } = useMessaging();
-  const { currentUser, availableDemoUsers } = useAuth();
+  const { currentUser, registeredUsers } = useAuth();
 
   const [textInput, setTextInput] = useState('');
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -352,13 +351,13 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
   // Partner profile for 1-to-1 calls and recipient identity
   const partnerProfile =
     activeConversation.type === 'direct'
-      ? availableDemoUsers.find((p) =>
+      ? registeredUsers.find((p) =>
           activeConversation.members?.some(
             (m) => m.user_id === p.id && p.id !== currentUser?.id
           )
         ) ||
-        availableDemoUsers.find((p) => p.display_name === activeConversation.title) ||
-        DEMO_PROFILES[1]
+        registeredUsers.find((p) => p.display_name === activeConversation.title) ||
+        null
       : null;
 
   const typingNames = isTyping[activeConversation.id] || [];

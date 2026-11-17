@@ -246,7 +246,7 @@ class BusinessStore {
         }).then();
       }
     } catch (e) {
-      // Ignore in demo mode
+      // Local fallback if table is not provisioned
     }
 
     return this.profile;
@@ -288,7 +288,7 @@ class BusinessStore {
         }).then();
       }
     } catch (e) {
-      // Ignore in demo mode
+      // Local fallback if table is not provisioned
     }
 
     return newTemplate;

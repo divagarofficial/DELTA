@@ -22,7 +22,6 @@ import {
 import { useMessaging } from '@/context/MessagingContext';
 import { useAuth } from '@/context/AuthContext';
 import { getInitials } from '@/lib/utils';
-import { DEMO_PROFILES } from '@/data/mockData';
 import { generateSafetyNumber } from '@/lib/security';
 
 interface ConversationDetailsProps {
@@ -31,7 +30,7 @@ interface ConversationDetailsProps {
 
 export function ConversationDetails({ onClose }: ConversationDetailsProps) {
   const { activeConversation, startCall, toggleMuteConversation, messages } = useMessaging();
-  const { currentUser, availableDemoUsers } = useAuth();
+  const { currentUser, registeredUsers } = useAuth();
   const [disappearingDuration, setDisappearingDuration] = useState('0');
   const [isBlocked, setIsBlocked] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
@@ -50,13 +49,13 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
   const isGroup = activeConversation.type === 'group';
   const partnerProfile =
     !isGroup
-      ? availableDemoUsers.find((p) =>
+      ? registeredUsers.find((p) =>
           activeConversation.members?.some(
             (m) => m.user_id === p.id && p.id !== currentUser?.id
           )
         ) ||
-        availableDemoUsers.find((p) => p.display_name === activeConversation.title) ||
-        DEMO_PROFILES[1]
+        registeredUsers.find((p) => p.display_name === activeConversation.title) ||
+        null
       : null;
 
   const safetyNumbers = generateSafetyNumber(
@@ -238,23 +237,13 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
         <div className="p-4 border-b border-border space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-foreground">
-              Members ({activeConversation.members?.length || 4})
+              Members ({activeConversation.members?.length || 0})
             </span>
           </div>
           <div className="space-y-2">
-            {(activeConversation.members && activeConversation.members.length > 0
-              ? activeConversation.members
-              : DEMO_PROFILES.slice(0, 4).map((p, i) => ({
-                  id: `m-fallback-${p.id}`,
-                  conversation_id: activeConversation.id,
-                  user_id: p.id,
-                  role: i === 0 ? ('admin' as const) : ('member' as const),
-                  joined_at: new Date().toISOString(),
-                }))
-            ).map((m, i) => {
+            {(activeConversation.members || []).map((m, i) => {
               const member =
-                availableDemoUsers.find((p) => p.id === m.user_id) ||
-                DEMO_PROFILES.find((p) => p.id === m.user_id) || {
+                registeredUsers.find((p) => p.id === m.user_id) || {
                   id: m.user_id,
                   display_name: 'Member',
                   avatar_url: null,

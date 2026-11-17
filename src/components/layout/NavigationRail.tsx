@@ -29,7 +29,7 @@ interface NavigationRailProps {
 
 export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
   const router = useRouter();
-  const { currentUser, signOut, switchDemoUser, availableDemoUsers, isDemoMode, isConfigured } = useAuth();
+  const { currentUser, signOut, switchAccount, registeredUsers, isConfigured } = useAuth();
   const { activeTab, setActiveTab, conversations, statuses, isSatelliteMode, setShowSatelliteRadar } = useMessaging();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [showPersonaMenu, setShowPersonaMenu] = useState(false);
@@ -240,26 +240,26 @@ export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
               <div className="my-2.5 px-3 py-1.5 rounded-xl bg-muted/60 text-xs flex items-center justify-between border border-border/50">
                 <span className="font-medium text-muted-foreground flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  {isDemoMode ? 'Delta Demo Sandbox' : 'Delta Production Engine'}
+                  Delta Production Engine
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
-                  {isDemoMode ? 'Demo' : 'Production'}
+                  Production
                 </span>
               </div>
 
               {/* Switch account option (if multiple registered accounts exist on this browser) */}
-              {availableDemoUsers.length > 1 && (
+              {registeredUsers.length > 1 && (
                 <div className="space-y-1 mb-2">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-1">
                     Switch Account
                   </p>
-                  {availableDemoUsers.map((profile) => {
+                  {registeredUsers.map((profile) => {
                     const isCurrent = currentUser?.id === profile.id;
                     return (
                       <button
                         key={profile.id}
                         onClick={() => {
-                          switchDemoUser(profile.id);
+                          switchAccount(profile.id);
                           setShowPersonaMenu(false);
                         }}
                         className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left text-xs transition-all ${
