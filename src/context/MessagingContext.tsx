@@ -114,6 +114,7 @@ interface MessagingContextType {
   importContactsFromFile: (content: string, type: 'vcf' | 'csv') => Promise<{ count: number; matched: number }>;
   addContactByPhone: (name: string, phoneNumber: string) => Promise<{ matchedUser?: Profile }>;
   removeSyncedContact: (id: string) => void;
+  clearAllContacts: () => void;
   syncSampleAddressBook: () => void;
   // Satellite Direct-to-Cell (3GPP Rel-17 NTN)
   isSatelliteMode: boolean;
@@ -283,7 +284,35 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       if (storedSynced) {
         try {
           const parsed = JSON.parse(storedSynced);
-          const rawList = parsed.map((c: any) => ({ name: c.name, phone: c.phone_number }));
+          // Purge any legacy mock sample contacts from previous sessions
+          const mockSampleNames = [
+            'Priya Sharma (Colleague)',
+            'Arjun Patel (Design Lead)',
+            'Ananya Iyer (Mobile Dev)',
+            'Dr. Neha Sen (Cardiologist)',
+            'Rajesh Gupta (Vendor)',
+            'Kavita Menon (College Friend)',
+          ];
+          const mockSamplePhones = [
+            '+91 98111 22334',
+            '+91 97222 33445',
+            '+91 96333 44556',
+            '+91 98450 11223',
+            '+91 98765 00112',
+            '+91 98200 77665',
+          ];
+
+          const cleanList = Array.isArray(parsed)
+            ? parsed.filter(
+                (c: any) =>
+                  !mockSampleNames.includes(c.name) &&
+                  !mockSamplePhones.includes(c.phone_number)
+              )
+            : [];
+
+          localStorage.setItem('delta_synced_contacts', JSON.stringify(cleanList));
+
+          const rawList = cleanList.map((c: any) => ({ name: c.name, phone: c.phone_number }));
           const refreshed = matchContactsWithProfiles(rawList, registeredUsers);
           setSyncedContacts(refreshed);
         } catch (e) { console.error(e); }
@@ -1179,10 +1208,16 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       } catch (err: any) {
         return { success: false, count: 0, error: err.message || 'Failed to access device contacts.' };
       }
+    } else {
+      return {
+        success: false,
+        count: 0,
+        error: 'Native Contact Picker is available on mobile browsers (Chrome on Android / PWA). On desktop, use "Import .vcf / .csv" or "+ Add Number".',
+      };
     }
 
     if (raw.length === 0) {
-      raw = SAMPLE_PHONE_ADDRESS_BOOK;
+      return { success: true, count: 0 };
     }
 
     const currentRaw = syncedContacts.map((c) => ({ name: c.name, phone: c.phone_number }));
@@ -1229,6 +1264,13 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     setSyncedContacts(updated);
     if (typeof window !== 'undefined') {
       localStorage.setItem('delta_synced_contacts', JSON.stringify(updated));
+    }
+  };
+
+  const clearAllContacts = () => {
+    setSyncedContacts([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('delta_synced_contacts');
     }
   };
 
@@ -1355,6 +1397,7 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         importContactsFromFile,
         addContactByPhone,
         removeSyncedContact,
+        clearAllContacts,
         syncSampleAddressBook,
         // Satellite Direct-to-Cell
         isSatelliteMode,

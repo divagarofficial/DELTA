@@ -12,7 +12,8 @@ import {
   UserPlus,
   RefreshCw,
   Share2,
-  ExternalLink,
+  Trash2,
+  MessageCircle,
   Phone,
   Sparkles,
 } from 'lucide-react';
@@ -33,11 +34,13 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
     syncDeviceContacts,
     importContactsFromFile,
     addContactByPhone,
+    removeSyncedContact,
+    clearAllContacts,
     isContactsPickerSupported,
   } = useMessaging();
   const { currentUser, registeredUsers } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'direct' | 'group' | 'contacts'>('contacts');
+  const [activeTab, setActiveTab] = useState<'direct' | 'group' | 'contacts'>('direct');
   const [searchQuery, setSearchQuery] = useState('');
   const [groupTitle, setGroupTitle] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -78,8 +81,32 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
   const contactsOnDelta = filteredContacts.filter((c) => c.is_on_delta && c.delta_user_id !== currentUser?.id);
   const contactsToInvite = filteredContacts.filter((c) => !c.is_on_delta);
 
+  const cleanDigits = searchQuery.replace(/\D/g, '');
+
   const handleStartDirect = (user: Profile) => {
     createConversation(user.id);
+    onClose();
+  };
+
+  const handleStartDirectByPhone = (phoneNumber: string, defaultName?: string) => {
+    const raw10 = phoneNumber.replace(/\D/g, '').slice(-10);
+    // 1. Check if user exists among registered users
+    const matchedUser = registeredUsers.find((u) =>
+      u.phone_number?.replace(/\D/g, '').endsWith(raw10)
+    );
+    if (matchedUser) {
+      createConversation(matchedUser.id);
+      onClose();
+      return;
+    }
+
+    // 2. Check if user is in synced contacts
+    const matchedContact = syncedContacts.find((c) =>
+      c.phone_number.replace(/\D/g, '').endsWith(raw10)
+    );
+
+    const displayName = defaultName || matchedContact?.name || `+91 ${raw10}`;
+    createConversation(`phone-${raw10}`, displayName);
     onClose();
   };
 
@@ -102,7 +129,11 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
     try {
       const res = await syncDeviceContacts();
       if (res.success) {
-        setSyncStatusMsg(`✓ Synced ${res.count} contacts from address book.`);
+        setSyncStatusMsg(
+          res.count > 0
+            ? `✓ Synced ${res.count} contacts from address book.`
+            : '✓ Contacts checked. No new contacts found.'
+        );
       } else {
         setSyncStatusMsg(res.error || 'Could not sync contacts.');
       }
@@ -122,7 +153,7 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
     const text = await file.text();
     const type = file.name.endsWith('.csv') ? 'csv' : 'vcf';
     const res = await importContactsFromFile(text, type);
-    setSyncStatusMsg(`✓ Imported ${res.count} contacts (${res.matched} on Delta).`);
+    setSyncStatusMsg(`✓ Imported ${res.count} contacts (${res.matched} registered on Delta).`);
     setTimeout(() => setSyncStatusMsg(''), 4000);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -132,11 +163,11 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
     e.preventDefault();
     if (!newContactPhone.trim()) return;
 
-    const res = await addContactByPhone(newContactName || 'Friend', newContactPhone);
+    const res = await addContactByPhone(newContactName || 'Contact', newContactPhone);
     if (res.matchedUser) {
       setSyncStatusMsg(`✓ Added! "${res.matchedUser.display_name}" is on Delta!`);
     } else {
-      setSyncStatusMsg(`✓ Added "${newContactName || newContactPhone}" to phone contacts.`);
+      setSyncStatusMsg(`✓ Added "${newContactName || newContactPhone}" to contacts.`);
     }
     setNewContactName('');
     setNewContactPhone('');
@@ -150,11 +181,13 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
     const shareText = `Hey ${contact.name}! I'm using Delta for fast, secure messaging. Connect with me here: ${inviteUrl}`;
 
     if (typeof navigator !== 'undefined' && navigator.share) {
-      navigator.share({
-        title: 'Join me on Delta',
-        text: shareText,
-        url: inviteUrl,
-      }).catch(() => {});
+      navigator
+        .share({
+          title: 'Join me on Delta',
+          text: shareText,
+          url: inviteUrl,
+        })
+        .catch(() => {});
     } else if (typeof window !== 'undefined') {
       window.open(`sms:${contact.phone_number}?body=${encodeURIComponent(shareText)}`, '_blank');
     }
@@ -167,18 +200,6 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
         <div className="p-4 border-b border-border flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 bg-muted p-1 rounded-xl text-xs font-semibold overflow-x-auto">
             <button
-              onClick={() => setActiveTab('contacts')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
-                activeTab === 'contacts'
-                  ? 'bg-card text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Smartphone className="w-3.5 h-3.5 text-delta-600" />
-              Phone Contacts ({syncedContacts.length})
-            </button>
-
-            <button
               onClick={() => setActiveTab('direct')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
                 activeTab === 'direct'
@@ -186,8 +207,20 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <MessageSquare className="w-3.5 h-3.5" />
+              <MessageSquare className="w-3.5 h-3.5 text-delta-600" />
               Direct Message
+            </button>
+
+            <button
+              onClick={() => setActiveTab('contacts')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
+                activeTab === 'contacts'
+                  ? 'bg-card text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              Phone Contacts ({syncedContacts.length})
             </button>
 
             <button
@@ -205,29 +238,16 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
 
           <button
             onClick={onClose}
+            aria-label="Close modal"
             className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Tab 2: Direct Message */}
+        {/* Tab 1: Direct Message */}
         {activeTab === 'direct' && (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Info notice showing auto-sync is active */}
-            <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center justify-between text-[11px] text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5 text-delta-600 shrink-0" />
-                <span>Phone contacts are automatically synchronized in background.</span>
-              </div>
-              <button
-                onClick={() => setActiveTab('contacts')}
-                className="font-bold text-delta-600 hover:underline shrink-0"
-              >
-                View Phone Contacts &rarr;
-              </button>
-            </div>
-
             <div className="p-3 border-b border-border">
               <div className="relative flex items-center">
                 <Search className="w-4 h-4 text-muted-foreground absolute left-3 pointer-events-none" />
@@ -235,16 +255,37 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, @username, or phone number..."
+                  placeholder="Enter mobile number, name, or @username..."
                   className="w-full bg-muted text-foreground placeholder:text-muted-foreground text-xs pl-9 pr-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-delta-500"
                 />
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-border/40 p-2">
+              {/* Quick Action: Direct message by phone number */}
+              {cleanDigits.length >= 7 && (
+                <div
+                  onClick={() => handleStartDirectByPhone(cleanDigits)}
+                  className="flex items-center gap-3 p-3 mb-2 rounded-xl bg-delta-50 dark:bg-delta-950/40 border border-delta-200 dark:border-delta-800 hover:bg-delta-100 dark:hover:bg-delta-900 cursor-pointer transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-full bg-delta-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-xs text-foreground">
+                      Start Chat with +91 {cleanDigits.slice(-10)}
+                    </p>
+                    <p className="text-[11px] text-delta-600 dark:text-delta-400">
+                      Click to start a conversation with this mobile number
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <p className="text-[11px] font-semibold text-muted-foreground uppercase px-2 py-1">
                 Registered Delta Users ({filteredUsers.length})
               </p>
+
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
@@ -270,40 +311,72 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground truncate">
-                      @{user.username} • {user.status_message}
+                      @{user.username} {user.status_message ? `• ${user.status_message}` : ''}
                     </p>
                   </div>
                 </div>
               ))}
+
+              {filteredUsers.length === 0 && cleanDigits.length < 7 && (
+                <div className="p-6 text-center text-xs text-muted-foreground">
+                  No registered users match your search. Try entering a 10-digit mobile number above.
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Tab 1: Phone Contacts (Auto-Synced with Device Address Book) */}
+        {/* Tab 2: Phone Contacts */}
         {activeTab === 'contacts' && (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Automatic Phone Sync Status & Quick Tools */}
+            {/* Sync Status Badge & Action Buttons */}
             <div className="px-3.5 py-2.5 border-b border-border bg-delta-50/50 dark:bg-delta-950/30 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[11px] font-bold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Auto-Synced with Phone</span>
-                </div>
+                {isContactsPickerSupported ? (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[11px] font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Mobile Device Sync</span>
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-[11px] font-medium"
+                    title="Desktop web browsers sandbox address books. Use + Add Number or Import .vcf."
+                  >
+                    <span className="w-2 h-2 rounded-full bg-delta-500" />
+                    <span>Desktop Web Sync</span>
+                  </div>
+                )}
+
                 <button
                   onClick={handleSyncContacts}
                   disabled={isSyncing}
-                  title="Check for newly added phone contacts"
-                  aria-label="Sync Phone Contacts"
+                  title="Refresh contacts"
+                  aria-label="Refresh contacts"
                   className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                 </button>
+
+                {syncedContacts.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Clear all contacts from this device?')) {
+                        clearAllContacts();
+                        setSyncStatusMsg('Cleared contacts list.');
+                        setTimeout(() => setSyncStatusMsg(''), 3000);
+                      }
+                    }}
+                    className="text-[11px] text-rose-500 hover:text-rose-600 font-semibold px-2 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  title="Import contacts from .vcf or .csv address book"
+                  title="Import contacts from .vcf or .csv"
                   className="px-2.5 py-1 rounded-lg bg-card border border-border text-foreground text-xs font-semibold hover:bg-muted transition-colors flex items-center gap-1.5"
                 >
                   <Upload className="w-3.5 h-3.5 text-muted-foreground" />
@@ -375,126 +448,187 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
             )}
 
             {/* Search Filter */}
-            <div className="p-3 border-b border-border">
-              <div className="relative flex items-center">
-                <Search className="w-4 h-4 text-muted-foreground absolute left-3 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter synced contacts by name or phone..."
-                  className="w-full bg-muted text-foreground placeholder:text-muted-foreground text-xs pl-9 pr-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-delta-500"
-                />
+            {syncedContacts.length > 0 && (
+              <div className="p-3 border-b border-border">
+                <div className="relative flex items-center">
+                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filter contacts by name or phone..."
+                    className="w-full bg-muted text-foreground placeholder:text-muted-foreground text-xs pl-9 pr-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-delta-500"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Contacts Lists */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-4">
-              {/* 1. Contacts on Delta */}
-              <div>
-                <div className="flex items-center justify-between px-2 py-1 mb-1">
-                  <p className="text-[11px] font-bold text-delta-600 uppercase tracking-wider flex items-center gap-1.5">
-                    <Check className="w-3.5 h-3.5" />
-                    Contacts on Delta ({contactsOnDelta.length})
+            {syncedContacts.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-delta-100 dark:bg-delta-950/60 text-delta-600 flex items-center justify-center">
+                  <Smartphone className="w-7 h-7" />
+                </div>
+                <div className="space-y-1 max-w-xs">
+                  <h3 className="font-bold text-sm text-foreground">No Phone Contacts Synced</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Add contacts using their mobile number or import a .vcf file from Google/iCloud Contacts to start chatting.
                   </p>
-                  <span className="text-[10px] text-muted-foreground font-medium">Ready to chat</span>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                  <button
+                    onClick={() => setShowAddContactForm(true)}
+                    className="px-3 py-1.5 rounded-xl bg-delta-600 text-white text-xs font-bold hover:bg-delta-700 transition-colors shadow-xs flex items-center gap-1.5"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Add Mobile Number</span>
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-xl bg-card border border-border text-foreground text-xs font-semibold hover:bg-muted transition-colors flex items-center gap-1.5"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Import .vcf / .csv</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-2 space-y-4">
+                {/* 1. Contacts on Delta */}
+                <div>
+                  <div className="flex items-center justify-between px-2 py-1 mb-1">
+                    <p className="text-[11px] font-bold text-delta-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5" />
+                      Contacts on Delta ({contactsOnDelta.length})
+                    </p>
+                    <span className="text-[10px] text-muted-foreground font-medium">Ready to chat</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    {contactsOnDelta.map((c) => {
+                      const profile = c.delta_profile;
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between p-2 rounded-xl border border-border/50 bg-card hover:bg-muted/60 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-9 h-9 rounded-full overflow-hidden bg-delta-100 dark:bg-delta-950 text-delta-700 dark:text-delta-300 flex items-center justify-center font-bold text-xs shrink-0">
+                              {profile?.avatar_url ? (
+                                <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                getInitials(c.name)
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-xs text-foreground truncate">{c.name}</p>
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shrink-0">
+                                  On Delta
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground font-mono truncate">
+                                {c.phone_number} {profile ? `• @${profile.username}` : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            <button
+                              data-testid={`message-contact-${c.delta_user_id}`}
+                              aria-label={`Message ${c.name}`}
+                              onClick={() => {
+                                if (c.delta_user_id) {
+                                  createConversation(c.delta_user_id);
+                                  onClose();
+                                }
+                              }}
+                              className="px-3 py-1 rounded-lg bg-delta-600 text-white text-xs font-bold hover:bg-delta-700 transition-colors shadow-xs"
+                            >
+                              Message
+                            </button>
+                            <button
+                              onClick={() => removeSyncedContact(c.id)}
+                              title="Remove contact"
+                              aria-label="Remove contact"
+                              className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {contactsOnDelta.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic px-2 py-1">
+                        No matching contacts on Delta found for this filter.
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  {contactsOnDelta.map((c) => {
-                    const profile = c.delta_profile;
-                    return (
+                {/* 2. Contacts to Invite */}
+                <div>
+                  <div className="flex items-center justify-between px-2 py-1 mb-1 border-t border-border/40 pt-3">
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Invite to Delta ({contactsToInvite.length})
+                    </p>
+                    <span className="text-[10px] text-muted-foreground font-medium">Not on Delta yet</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    {contactsToInvite.map((c) => (
                       <div
                         key={c.id}
-                        className="flex items-center justify-between p-2 rounded-xl border border-border/50 bg-card hover:bg-muted/60 transition-colors"
+                        className="flex items-center justify-between p-2 rounded-xl border border-border/30 bg-muted/20 hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-9 h-9 rounded-full overflow-hidden bg-delta-100 dark:bg-delta-950 text-delta-700 dark:text-delta-300 flex items-center justify-center font-bold text-xs shrink-0">
-                            {profile?.avatar_url ? (
-                              <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              getInitials(c.name)
-                            )}
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-[11px] text-muted-foreground shrink-0">
+                            {getInitials(c.name)}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-xs text-foreground truncate">{c.name}</p>
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shrink-0">
-                                On Delta
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground font-mono truncate">
-                              {c.phone_number} {profile ? `• @${profile.username}` : ''}
-                            </p>
+                            <p className="font-medium text-xs text-foreground truncate">{c.name}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono truncate">{c.phone_number}</p>
                           </div>
                         </div>
 
-                        <button
-                          data-testid={`message-contact-${c.delta_user_id}`}
-                          aria-label={`Message ${c.name}`}
-                          onClick={() => {
-                            if (c.delta_user_id) {
-                              createConversation(c.delta_user_id);
-                              onClose();
-                            }
-                          }}
-                          className="px-3 py-1 rounded-lg bg-delta-600 text-white text-xs font-bold hover:bg-delta-700 transition-colors shrink-0 ml-2 shadow-xs"
-                        >
-                          Message
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {contactsOnDelta.length === 0 && (
-                    <p className="text-xs text-muted-foreground italic px-2 py-1">
-                      No matching contacts on Delta found for this filter.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* 2. Contacts to Invite */}
-              <div>
-                <div className="flex items-center justify-between px-2 py-1 mb-1 border-t border-border/40 pt-3">
-                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Invite to Delta ({contactsToInvite.length})
-                  </p>
-                  <span className="text-[10px] text-muted-foreground font-medium">Not on Delta yet</span>
-                </div>
-
-                <div className="space-y-1">
-                  {contactsToInvite.map((c) => (
-                    <div
-                      key={c.id}
-                      className="flex items-center justify-between p-2 rounded-xl border border-border/30 bg-muted/20 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-[11px] text-muted-foreground shrink-0">
-                          {getInitials(c.name)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-xs text-foreground truncate">{c.name}</p>
-                          <p className="text-[10px] text-muted-foreground font-mono truncate">{c.phone_number}</p>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <button
+                            onClick={() => handleStartDirectByPhone(c.phone_number, c.name)}
+                            title="Start chat with this contact"
+                            className="px-2.5 py-1 rounded-lg bg-delta-500/10 text-delta-600 dark:text-delta-400 text-xs font-semibold hover:bg-delta-500/20 transition-colors flex items-center gap-1"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                            <span>Chat</span>
+                          </button>
+                          <button
+                            onClick={() => handleInviteContact(c)}
+                            title="Invite contact"
+                            className="px-2.5 py-1 rounded-lg border border-delta-300 dark:border-delta-800 text-delta-600 dark:text-delta-400 text-xs font-semibold hover:bg-delta-50 dark:hover:bg-delta-950 transition-colors flex items-center gap-1"
+                          >
+                            <Share2 className="w-3 h-3" />
+                            <span>Invite</span>
+                          </button>
+                          <button
+                            onClick={() => removeSyncedContact(c.id)}
+                            title="Remove contact"
+                            aria-label="Remove contact"
+                            className="p-1 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
-
-                      <button
-                        onClick={() => handleInviteContact(c)}
-                        className="px-3 py-1 rounded-lg border border-delta-300 dark:border-delta-800 text-delta-600 dark:text-delta-400 text-xs font-semibold hover:bg-delta-50 dark:hover:bg-delta-950 transition-colors shrink-0 ml-2 flex items-center gap-1"
-                      >
-                        <Share2 className="w-3 h-3" />
-                        <span>Invite</span>
-                      </button>
-                    </div>
-                  ))}
-                  {contactsToInvite.length === 0 && (
-                    <p className="text-xs text-muted-foreground italic px-2 py-1">
-                      All synced contacts are registered on Delta!
-                    </p>
-                  )}
+                    ))}
+                    {contactsToInvite.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic px-2 py-1">
+                        All synced contacts are registered on Delta!
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

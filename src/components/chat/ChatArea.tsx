@@ -711,14 +711,18 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
                   </span>
                   <span>{typingNames.join(', ')} typing...</span>
                 </span>
-              ) : activeConversation.type === 'direct' && partnerProfile ? (
-                isOnline ? (
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Online
-                  </span>
+              ) : activeConversation.type === 'direct' ? (
+                partnerProfile ? (
+                  isOnline ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      Online
+                    </span>
+                  ) : (
+                    formatLastSeen(partnerProfile.last_seen_at, partnerProfile.privacy_last_seen)
+                  )
                 ) : (
-                  formatLastSeen(partnerProfile.last_seen_at, partnerProfile.privacy_last_seen)
+                  <span className="text-muted-foreground">Direct Message</span>
                 )
               ) : activeConversation.type === 'group' ? (
                 `${activeConversation.members?.length || 4} participants`

@@ -164,8 +164,16 @@ Dr. Neha Sen,9845011223`;
       expect(matched[0].delta_user_id).toBe('user-arjun');
     });
 
-    it('correctly processes DEMO_PHONE_ADDRESS_BOOK against profiles', () => {
-      const matched = matchContactsWithProfiles(DEMO_PHONE_ADDRESS_BOOK, mockRegisteredProfiles);
+    it('correctly processes phone address book against registered profiles', () => {
+      const testContacts: RawContactInput[] = [
+        { name: 'Priya Sharma (Colleague)', phone: '+91 98111 22334' },
+        { name: 'Arjun Patel (Design Lead)', phone: '+91 97222 33445' },
+        { name: 'Ananya Iyer (Mobile Dev)', phone: '+91 96333 44556' },
+        { name: 'Dr. Neha Sen (Cardiologist)', phone: '+91 98450 11223' },
+        { name: 'Rajesh Gupta (Vendor)', phone: '+91 98765 00112' },
+        { name: 'Kavita Menon (College Friend)', phone: '+91 98200 77665' },
+      ];
+      const matched = matchContactsWithProfiles(testContacts, mockRegisteredProfiles);
       expect(matched.length).toBeGreaterThan(0);
 
       const registered = matched.filter((c) => c.is_on_delta);
