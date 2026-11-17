@@ -25,11 +25,13 @@ export default function HomePage() {
   const { currentUser, isLoading } = useAuth();
   const [showLandingExplicit, setShowLandingExplicit] = useState(false);
 
-  const handleLaunchWebApp = () => {
+  const handleLaunchWebApp = (e?: React.MouseEvent) => {
     if (currentUser) {
+      e?.preventDefault();
       setShowLandingExplicit(false);
-    } else {
-      router.push('/auth');
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', '/');
+      }
     }
   };
 
@@ -70,18 +72,19 @@ export default function HomePage() {
 
           <div className="flex items-center gap-3">
             <Link
-              href="/auth"
+              href="/auth?mode=signin"
               className="text-xs font-semibold text-muted-foreground hover:text-foreground px-3 py-2 transition-colors"
             >
               Sign In
             </Link>
-            <button
+            <Link
+              href={currentUser ? '/' : '/auth?mode=signin'}
               onClick={handleLaunchWebApp}
               className="px-4 py-2 rounded-xl text-xs font-bold bg-delta-600 text-white hover:bg-delta-700 shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
             >
               <span>Open Web App</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -110,15 +113,16 @@ export default function HomePage() {
 
         {/* CTA Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
-          <button
+          <Link
+            href={currentUser ? '/' : '/auth?mode=signin'}
             onClick={handleLaunchWebApp}
             className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-delta-600 text-white text-sm font-bold hover:bg-delta-700 shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             <span>Launch Delta Web</span>
             <ArrowRight className="w-4 h-4" />
-          </button>
+          </Link>
           <Link
-            href="/auth"
+            href="/auth?mode=signup"
             className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-card border border-border text-foreground text-sm font-semibold hover:bg-muted shadow-xs transition-colors flex items-center justify-center"
           >
             Create Free Account

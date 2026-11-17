@@ -239,11 +239,11 @@ export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
               {/* Mode badge */}
               <div className="my-2.5 px-3 py-1.5 rounded-xl bg-muted/60 text-xs flex items-center justify-between border border-border/50">
                 <span className="font-medium text-muted-foreground flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-delta-600" />
-                  {isConfigured ? 'Supabase Connected' : 'Delta Demo Sandbox'}
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  {isDemoMode ? 'Delta Demo Sandbox' : 'Delta Production Engine'}
                 </span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-delta-50 dark:bg-delta-950 text-delta-700 dark:text-delta-300 font-bold border border-delta-200 dark:border-delta-800">
-                  Active
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-800">
+                  {isDemoMode ? 'Demo' : 'Production'}
                 </span>
               </div>
 

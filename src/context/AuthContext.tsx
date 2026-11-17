@@ -63,21 +63,25 @@ function getStoredProfiles(): Profile[] {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const isProductionMode = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'false';
+  const isConfigured = isSupabaseConfigured();
+
   const [currentUser, setCurrentUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isConfigured = isSupabaseConfigured();
-  const [isDemoMode, setIsDemoMode] = useState(!isConfigured);
+  const [isDemoMode, setIsDemoMode] = useState(!isProductionMode && !isConfigured);
   const [customProfiles, setCustomProfiles] = useState<Profile[]>([]);
 
   // Synchronize stored custom profiles
   const refreshCustomProfiles = useCallback(() => {
     const stored = getStoredProfiles();
     setCustomProfiles(stored);
+    return stored;
   }, []);
 
   useEffect(() => {
     async function initAuth() {
-      refreshCustomProfiles();
+      const stored = getStoredProfiles();
+      setCustomProfiles(stored);
 
       if (isConfigured) {
         const supabase = createClient();
@@ -99,37 +103,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
           } catch (e) {
-            console.error('Supabase session initialization error:', e);
+            console.warn('Supabase session initialization note:', e);
           }
         }
       }
 
       // Check localStorage for persisted user session
-      const storedUserId = typeof window !== 'undefined' ? localStorage.getItem('delta_demo_user_id') : null;
+      const storedUserId = typeof window !== 'undefined'
+        ? (localStorage.getItem('delta_session_user_id') || localStorage.getItem('delta_demo_user_id'))
+        : null;
 
       // If user explicitly signed out, respect their sign out
       if (storedUserId === 'signed_out') {
         setCurrentUser(null);
-        setIsDemoMode(true);
+        setIsDemoMode(!isProductionMode);
         setIsLoading(false);
         return;
       }
 
-      // Purge any legacy mock user IDs (user-aarav, user-priya, user-arjun, user-ananya, user-rohit, user-diva)
-      const mockIds = ['user-aarav', 'user-priya', 'user-arjun', 'user-ananya', 'user-rohit', 'user-diva'];
-      if (storedUserId && mockIds.includes(storedUserId)) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('delta_demo_user_id');
-        }
-        setCurrentUser(null);
-        setIsDemoMode(true);
-        setIsLoading(false);
-        return;
-      }
+      // Discover user from stored profiles
+      const allProfiles = [...DEMO_PROFILES, ...stored];
+      let found: Profile | undefined = allProfiles.find((p) => p.id === storedUserId);
 
-      let found: Profile | undefined = customProfiles.find((p) => p.id === storedUserId);
-
-      // Check custom registered profiles from localStorage
+      // Check custom registered profiles directly from localStorage
       if (!found && storedUserId && typeof window !== 'undefined') {
         const customStored = localStorage.getItem(`delta_custom_profile_${storedUserId}`);
         if (customStored) {
@@ -147,12 +143,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCurrentUser(null);
       }
 
-      setIsDemoMode(true);
+      setIsDemoMode(!isProductionMode);
       setIsLoading(false);
     }
 
     initAuth();
-  }, [isConfigured, refreshCustomProfiles, customProfiles]);
+  }, [isConfigured, isProductionMode]);
 
   // Registered accounts
   const availableDemoUsers = customProfiles;
@@ -253,9 +249,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setCurrentUser(match);
     if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_session_user_id', match.id);
       localStorage.setItem('delta_demo_user_id', match.id);
     }
-    setIsDemoMode(true);
+    setIsDemoMode(!isProductionMode);
     setIsLoading(false);
     return {};
   };
@@ -348,8 +345,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               avatar_url: '/delta_logo_without_text.png',
               presence_status: 'online',
             };
+            if (typeof window !== 'undefined') {
+              localStorage.setItem(`delta_custom_profile_${data.user.id}`, JSON.stringify(newProfile));
+              localStorage.setItem('delta_session_user_id', data.user.id);
+              localStorage.setItem('delta_demo_user_id', data.user.id);
+            }
+            refreshCustomProfiles();
             setCurrentUser(newProfile);
-            setIsDemoMode(false);
+            setIsDemoMode(!isProductionMode);
             setIsLoading(false);
             return {};
           }
@@ -361,12 +364,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Create persistent new local profile with mandatory mobile number
     const newUserId = `user-reg-${Date.now()}`;
-    const newDemoProfile: Profile = {
+    const newProfile: Profile = {
       id: newUserId,
       username: cleanUsername,
       display_name: displayName.trim(),
       phone_number: normalizedPhone,
-      avatar_url: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80`,
+      avatar_url: '/delta_logo_without_text.png',
       biography: 'Delta Member • Everything connects.',
       status_message: 'Hey there! I am using Delta.',
       presence_status: 'online',
@@ -378,7 +381,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (typeof window !== 'undefined') {
       // 1. Store profile object
-      localStorage.setItem(`delta_custom_profile_${newUserId}`, JSON.stringify(newDemoProfile));
+      localStorage.setItem(`delta_custom_profile_${newUserId}`, JSON.stringify(newProfile));
       // 2. Store cryptographically hashed password for secure authentication
       const secureHashed = await hashPassword(password);
       localStorage.setItem(`delta_user_pwd_${newUserId}`, secureHashed);
@@ -389,12 +392,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('delta_registered_users', JSON.stringify(existingIds));
       }
       // 4. Set current session ID
+      localStorage.setItem('delta_session_user_id', newUserId);
       localStorage.setItem('delta_demo_user_id', newUserId);
     }
 
     refreshCustomProfiles();
-    setCurrentUser(newDemoProfile);
-    setIsDemoMode(true);
+    setCurrentUser(newProfile);
+    setIsDemoMode(!isProductionMode);
     setIsLoading(false);
     return {};
   };
@@ -408,6 +412,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     if (typeof window !== 'undefined') {
+      localStorage.setItem('delta_session_user_id', 'signed_out');
       localStorage.setItem('delta_demo_user_id', 'signed_out');
     }
     setCurrentUser(null);

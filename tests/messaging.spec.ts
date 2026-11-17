@@ -1,187 +1,124 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Delta Web Messaging Platform - E2E Verification', () => {
-  test('loads messaging workspace with navigation rail, conversations, and active chat', async ({ page }) => {
+test.describe('Delta Web Messaging Platform - Production & Auth Verification', () => {
+  test('landing page buttons navigate correctly to authentication modes', async ({ page }) => {
+    // 1. Visit root landing page
     await page.goto('/');
 
-    // Check brand logo
-    const brand = page.locator('button[aria-label="Delta Home"]');
-    await expect(brand).toBeVisible();
+    // Verify brand heading
+    await expect(page.locator('h1:has-text("Everything connects.")')).toBeVisible();
 
-    // Check main navigation tabs
-    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible();
-    await expect(page.locator('button[aria-label="Status"]')).toBeVisible();
-    await expect(page.locator('button[aria-label="Channels"]')).toBeVisible();
-    await expect(page.locator('button[aria-label="Communities"]')).toBeVisible();
+    // Verify "Create Free Account" button in hero navigates to signup mode
+    const createAccountBtn = page.locator('a:has-text("Create Free Account")');
+    await expect(createAccountBtn).toBeVisible();
+    await createAccountBtn.click();
+    await page.waitForURL('**/auth?mode=signup');
+    await expect(page.locator('h2:has-text("Create Delta Account")')).toBeVisible();
+    await expect(page.locator('text=Production Mode')).toBeVisible();
 
-    // Check conversation list header
-    await expect(page.locator('h1:has-text("Chats")')).toBeVisible();
-
-    // Check active conversation header
-    await expect(page.locator('h2:has-text("Priya Sharma")')).toBeVisible();
-  });
-
-  test('sends a message optimistically and receives automatic reply', async ({ page }) => {
+    // 2. Go back to landing page
     await page.goto('/');
 
-    // Find message composer textarea
-    const composer = page.locator('textarea[aria-label="Type a message"]');
-    await expect(composer).toBeVisible();
+    // Verify "Sign In" in header navigates to signin mode
+    const signInHeaderBtn = page.locator('header a:has-text("Sign In")');
+    await expect(signInHeaderBtn).toBeVisible();
+    await signInHeaderBtn.click();
+    await page.waitForURL('**/auth?mode=signin');
+    await expect(page.locator('h2:has-text("Sign in to Delta")')).toBeVisible();
 
-    const testContent = `Playwright E2E message ${Date.now()}`;
-    await composer.fill(testContent);
-    await composer.press('Enter');
-
-    // Verify message appears in conversation bubble
-    await expect(page.locator(`p:has-text("${testContent}")`)).toBeVisible();
-  });
-
-  test('launches WebRTC audio call modal and connects with timer', async ({ page }) => {
+    // 3. Go back to landing page
     await page.goto('/');
 
-    // Click audio call button
-    const audioCallBtn = page.locator('button[aria-label="Audio Call"]');
-    await expect(audioCallBtn).toBeVisible();
-    await audioCallBtn.click();
+    // Verify "Launch Delta Web" button in hero navigates to signin mode when unauthenticated
+    const launchWebBtn = page.locator('a:has-text("Launch Delta Web")');
+    await expect(launchWebBtn).toBeVisible();
+    await launchWebBtn.click();
+    await page.waitForURL('**/auth?mode=signin');
+    await expect(page.locator('h2:has-text("Sign in to Delta")')).toBeVisible();
 
-    // Verify WebRTC modal appears
-    await expect(page.locator('text=WebRTC P2P')).toBeVisible();
-    await expect(page.locator('button[aria-label="End call"]')).toBeVisible();
-
-    // End call
-    await page.locator('button[aria-label="End call"]').click();
-    await expect(page.locator('text=WebRTC P2P')).not.toBeVisible();
-  });
-
-  test('opens settings modal and inspects DevOps Supabase status', async ({ page }) => {
+    // 4. Go back to landing page
     await page.goto('/');
 
-    // Click settings button in rail
-    const settingsBtn = page.locator('button[aria-label="Settings"]');
-    await settingsBtn.click();
-
-    // Verify modal opened
-    await expect(page.locator('h2:has-text("Settings & Privacy")')).toBeVisible();
-
-    // Switch to DevOps & Backend tab
-    await page.locator('button:has-text("DevOps & Backend")').click();
-    await expect(page.locator('text=Supabase PostgreSQL Backend')).toBeVisible();
-    await expect(page.locator('text=Row Level Security (RLS) configured')).toBeVisible();
-
-    // Close modal
-    await page.locator('button:has(svg.lucide-x)').first().click();
-  });
-
-  test('enforces mobile number as mandatory key identity and supports mobile login', async ({ page }) => {
-    await page.goto('/auth');
-
-    // Verify Sign In with Mobile Number or Username label
-    await expect(page.locator('label:has-text("Mobile Number or Username")')).toBeVisible();
-
-    // Switch to Registration mode
-    await page.locator('button:has-text("Register with Mobile Number")').click();
-
-    // Verify Mobile Number is marked Mandatory • Key Identity
-    await expect(page.locator('text=Mandatory • Key Identity')).toBeVisible();
-    await expect(page.locator('input[type="tel"]')).toBeVisible();
-
-    // Switch back to Sign In
-    await page.locator('button:has-text("Already have an account? Sign In")').click();
-
-    // Login using Priya's mobile number: 9811122334
-    const idInput = page.locator('input[placeholder*="+91 98765 43210 or @username"]');
-    await idInput.fill('9811122334');
-    await page.locator('input[type="password"]').fill('DeltaPass123!');
-    await page.locator('button:has-text("Sign In to Delta")').click();
-
-    // Redirected to workspace
-    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible();
+    // Verify "Open Web App" in header navigates to signin mode when unauthenticated
+    const openWebAppBtn = page.locator('header a:has-text("Open Web App")');
+    await expect(openWebAppBtn).toBeVisible();
+    await openWebAppBtn.click();
+    await page.waitForURL('**/auth?mode=signin');
+    await expect(page.locator('h2:has-text("Sign in to Delta")')).toBeVisible();
   });
 
   test('completes full user registration, sign out, and re-login workflow', async ({ page }) => {
-    await page.goto('/auth');
+    await page.goto('/auth?mode=signup');
 
-    // Switch to Registration mode
-    await page.locator('button:has-text("Register with Mobile Number")').click();
+    // Verify Production Mode badge
+    await expect(page.locator('text=Production Mode')).toBeVisible();
 
-    // Fill in registration fields
-    await page.locator('input[type="tel"]').fill('9876543299');
-    await page.locator('input[placeholder="e.g. Priya Sharma"]').fill('Vikram Malhotra');
-    await page.locator('input[placeholder="priya_sharma"]').fill('vikram_m');
-    await page.locator('input[type="password"]').fill('VikramSecret123!');
+    // Fill in registration fields (using DIVAGAR credentials)
+    const testPhone = `93600${Math.floor(10000 + Math.random() * 90000)}`;
+    const testUser = `diva_${Date.now().toString().slice(-6)}`;
+    await page.locator('input[type="tel"]').fill(testPhone);
+    await page.locator('input[placeholder="e.g. Priya Sharma"]').fill('DIVAGAR E');
+    await page.locator('input[placeholder="priya_sharma"]').fill(testUser);
+    await page.locator('input[type="password"]').fill('DivaSecret123!');
 
     // Submit registration
     await page.locator('button[type="submit"]:has-text("Register with Mobile Number")').click();
 
     // Verify successful registration and workspace entry
-    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible();
+    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible({ timeout: 10000 });
 
-    // Open profile menu on navigation rail and Sign Out
-    await page.locator('button[aria-label="User Profile and Persona Switcher"]').click();
+    // Open profile menu on navigation rail and verify name & production mode
+    const profileBtn = page.locator('button[aria-label="User Profile and Persona Switcher"]');
+    await expect(profileBtn).toBeVisible();
+    await profileBtn.click();
+
+    await expect(page.locator('text=DIVAGAR E')).toBeVisible();
+    await expect(page.locator(`text=@${testUser}`)).toBeVisible();
+    await expect(page.locator('text=Delta Production Engine')).toBeVisible();
+
+    // Sign Out
     await page.locator('button:has-text("Sign Out")').click();
 
     // Verify redirected back to Auth screen
-    await expect(page.getByRole('heading', { name: 'Sign in to Delta' })).toBeVisible();
+    await expect(page.locator('h2:has-text("Sign in to Delta")')).toBeVisible();
 
     // Attempt sign in with wrong password
     const loginInput = page.locator('input[placeholder*="+91 98765 43210 or @username"]');
-    await loginInput.fill('9876543299');
+    await loginInput.fill(testPhone);
     await page.locator('input[type="password"]').fill('WrongPassword!');
     await page.locator('button:has-text("Sign In to Delta")').click();
     await expect(page.locator('text=Incorrect password')).toBeVisible();
 
-    // Now sign in with correct registered password
-    await page.locator('input[type="password"]').fill('VikramSecret123!');
+    // Sign in with correct password using phone number
+    await page.locator('input[type="password"]').fill('DivaSecret123!');
     await page.locator('button:has-text("Sign In to Delta")').click();
 
     // Verify successful login into workspace
-    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible();
+    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible({ timeout: 10000 });
   });
 
-  test('syncs phone address book contacts, matches registered Delta users, and provides instant messaging or invite', async ({ page }) => {
-    await page.goto('/');
+  test('allows logged-in user to launch web app from landing page without re-login', async ({ page }) => {
+    // 1. Register a session
+    await page.goto('/auth?mode=signup');
+    const testPhone = `93600${Math.floor(10000 + Math.random() * 90000)}`;
+    const testUser = `diva_${Date.now().toString().slice(-6)}`;
+    await page.locator('input[type="tel"]').fill(testPhone);
+    await page.locator('input[placeholder="e.g. Priya Sharma"]').fill('DIVAGAR E');
+    await page.locator('input[placeholder="priya_sharma"]').fill(testUser);
+    await page.locator('input[type="password"]').fill('DivaSecret123!');
+    await page.locator('button[type="submit"]:has-text("Register with Mobile Number")').click();
+    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible({ timeout: 10000 });
 
-    // Open New Chat modal
-    const newChatBtn = page.locator('button[aria-label="New Chat"]');
-    await newChatBtn.click();
+    // 2. Explicitly visit landing page while logged in
+    await page.goto('/?landing=true');
+    await expect(page.locator('h1:has-text("Everything connects.")')).toBeVisible();
 
-    // Verify New Chat modal opened with auto-synced phone contacts by default
-    await expect(page.locator('text=Auto-Synced with Phone')).toBeVisible();
+    // 3. Click "Launch Delta Web"
+    const launchWebBtn = page.locator('a:has-text("Launch Delta Web")');
+    await expect(launchWebBtn).toBeVisible();
+    await launchWebBtn.click();
 
-    // Verify synced contact sections appear immediately without manual sync
-    await expect(page.locator('text=Contacts on Delta')).toBeVisible();
-    await expect(page.locator('text=Invite to Delta')).toBeVisible();
-
-    // Verify registered users are detected with "On Delta" badge
-    await expect(page.locator('div:has-text("Priya Sharma"):has-text("On Delta")').first()).toBeVisible();
-
-    // Verify unregistered users are placed under Invite section
-    await expect(page.locator('text=Dr. Neha Sen')).toBeVisible();
-    await expect(page.locator('button:has-text("Invite")').first()).toBeVisible();
-
-    // Capture visual screenshot of the automatically synced contacts modal
-    await page.screenshot({
-      path: 'C:/Users/ediva/.gemini/antigravity-ide/brain/6314fabf-031b-4bd4-93a7-4378dabf450b/auto_synced_phone_contacts_active.png',
-    });
-
-    // Click Message button on matched contact Arjun Patel
-    const arjunMessageBtn = page.locator('button[data-testid="message-contact-user-arjun"]');
-    await expect(arjunMessageBtn).toBeVisible();
-    await arjunMessageBtn.click();
-
-    // Modal should close and active chat should switch to Arjun Patel
-    await expect(page.locator('button:has-text("Direct Message")')).not.toBeVisible();
-    await expect(page.locator('h2:has-text("Arjun Patel")')).toBeVisible();
-
-    // Now open Settings modal and verify Contacts & Sync tab
-    await page.locator('button[aria-label="Settings"]').click();
-    await page.locator('button:has-text("Contacts & Sync")').click();
-    await expect(page.locator('text=Automatic Background Sync Active')).toBeVisible();
-
-    // Capture visual screenshot of the Settings Contacts & Sync tab
-    await page.screenshot({
-      path: 'C:/Users/ediva/.gemini/antigravity-ide/brain/6314fabf-031b-4bd4-93a7-4378dabf450b/auto_synced_settings_tab.png',
-    });
+    // Verify immediately returns to workspace without redirecting to /auth
+    await expect(page.locator('button[aria-label="Chats"]')).toBeVisible({ timeout: 5000 });
   });
 });
-

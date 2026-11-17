@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DeltaLogoWithText } from '@/components/brand/DeltaLogo';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -18,11 +18,22 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-export default function AuthPage() {
+function AuthPageContent() {
   const router = useRouter();
-  const { signIn, signUp, availableDemoUsers, switchDemoUser, isConfigured } = useAuth();
+  const searchParams = useSearchParams();
+  const { signIn, signUp, availableDemoUsers, switchDemoUser, isDemoMode, isConfigured } = useAuth();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
+
+  // Sync mode whenever URL search param changes
+  useEffect(() => {
+    const qMode = searchParams.get('mode');
+    if (qMode === 'signup' || qMode === 'signin') {
+      setMode(qMode);
+    }
+  }, [searchParams]);
+
   // Sign in identifier: mobile number or username
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -41,48 +52,55 @@ export default function AuthPage() {
     setErrorMsg('');
     setIsSubmitting(true);
 
-    if (mode === 'signin') {
-      if (!identifier.trim()) {
-        setErrorMsg('Please enter your mobile number or username.');
-        setIsSubmitting(false);
-        return;
-      }
+    try {
+      if (mode === 'signin') {
+        if (!identifier.trim()) {
+          setErrorMsg('Please enter your mobile number or username.');
+          setIsSubmitting(false);
+          return;
+        }
 
-      const res = await signIn(identifier, password);
-      if (res.error) {
-        setErrorMsg(res.error);
-        setIsSubmitting(false);
+        const res = await signIn(identifier, password);
+        if (res.error) {
+          setErrorMsg(res.error);
+          setIsSubmitting(false);
+        } else {
+          // Successful login: navigate directly to workspace
+          window.location.href = '/';
+        }
       } else {
-        router.push('/');
-      }
-    } else {
-      // Sign Up: Mobile number is MANDATORY
-      if (!phoneNumber.trim()) {
-        setErrorMsg('Mobile number is mandatory. Mobile number is the key identity on Delta.');
-        setIsSubmitting(false);
-        return;
-      }
+        // Sign Up: Mobile number is MANDATORY
+        if (!phoneNumber.trim()) {
+          setErrorMsg('Mobile number is mandatory. Mobile number is the key identity on Delta.');
+          setIsSubmitting(false);
+          return;
+        }
 
-      const fullPhone = `${countryCode} ${phoneNumber.trim()}`;
-      const res = await signUp({
-        phoneNumber: fullPhone,
-        username: username.trim(),
-        displayName: displayName.trim(),
-        password: password.trim(),
-      });
+        const fullPhone = `${countryCode} ${phoneNumber.trim()}`;
+        const res = await signUp({
+          phoneNumber: fullPhone,
+          username: username.trim(),
+          displayName: displayName.trim(),
+          password: password.trim(),
+        });
 
-      if (res.error) {
-        setErrorMsg(res.error);
-        setIsSubmitting(false);
-      } else {
-        router.push('/');
+        if (res.error) {
+          setErrorMsg(res.error);
+          setIsSubmitting(false);
+        } else {
+          // Successful registration: navigate directly to workspace
+          window.location.href = '/';
+        }
       }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Authentication failed. Please try again.');
+      setIsSubmitting(false);
     }
   };
 
   const handleSelectDemoUser = (userId: string) => {
     switchDemoUser(userId);
-    router.push('/');
+    window.location.href = '/';
   };
 
   return (
@@ -106,8 +124,14 @@ export default function AuthPage() {
                   : 'Mobile number is mandatory and serves as your key identity.'}
               </p>
             </div>
-            <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300">
-              {isConfigured ? 'Supabase' : 'Demo Mode'}
+            <span
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                isDemoMode
+                  ? 'bg-delta-50 text-delta-800 dark:bg-delta-950 dark:text-delta-300 border-delta-200 dark:border-delta-800'
+                  : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+              }`}
+            >
+              {isDemoMode ? 'Demo Mode' : 'Production Mode'}
             </span>
           </div>
 
@@ -259,7 +283,7 @@ export default function AuthPage() {
               disabled={isSubmitting}
               className="w-full py-3 rounded-xl bg-delta-600 text-white font-bold text-xs hover:bg-delta-700 disabled:opacity-50 transition-all shadow-sm active:scale-98 flex items-center justify-center gap-1.5 mt-2"
             >
-              <span>{mode === 'signin' ? 'Sign In to Delta' : 'Register with Mobile Number'}</span>
+              <span>{isSubmitting ? 'Please wait...' : mode === 'signin' ? 'Sign In to Delta' : 'Register with Mobile Number'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -268,8 +292,12 @@ export default function AuthPage() {
           <div className="mt-4 text-center">
             <button
               onClick={() => {
-                setMode(mode === 'signin' ? 'signup' : 'signin');
+                const nextMode = mode === 'signin' ? 'signup' : 'signin';
+                setMode(nextMode);
                 setErrorMsg('');
+                if (typeof window !== 'undefined') {
+                  window.history.replaceState({}, '', `/auth?mode=${nextMode}`);
+                }
               }}
               className="text-xs text-delta-600 hover:text-delta-700 font-semibold"
             >
@@ -279,32 +307,48 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Quick Demo Personas with Mobile Numbers & Usernames */}
-          <div className="mt-6 pt-5 border-t border-border">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 text-center">
-              Quick Test Personas (Mobile / Username)
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {availableDemoUsers.slice(0, 4).map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleSelectDemoUser(p.id)}
-                  className="p-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-left text-xs transition-colors flex items-center gap-2"
-                >
-                  <div className="w-7 h-7 rounded-full overflow-hidden bg-card shrink-0">
-                    <img src={p.avatar_url || ''} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="truncate min-w-0">
-                    <p className="font-semibold text-foreground truncate">{p.display_name}</p>
-                    <p className="text-[10px] text-delta-600 font-mono truncate">{p.phone_number}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">@{p.username}</p>
-                  </div>
-                </button>
-              ))}
+          {/* Quick Demo Personas (Only in Demo Mode) */}
+          {isDemoMode && availableDemoUsers.length > 0 && (
+            <div className="mt-6 pt-5 border-t border-border">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 text-center">
+                Quick Test Personas (Mobile / Username)
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {availableDemoUsers.slice(0, 4).map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSelectDemoUser(p.id)}
+                    className="p-2 rounded-xl border border-border bg-muted/40 hover:bg-muted text-left text-xs transition-colors flex items-center gap-2"
+                  >
+                    <div className="w-7 h-7 rounded-full overflow-hidden bg-card shrink-0">
+                      <img src={p.avatar_url || ''} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="truncate min-w-0">
+                      <p className="font-semibold text-foreground truncate">{p.display_name}</p>
+                      <p className="text-[10px] text-delta-600 font-mono truncate">{p.phone_number}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">@{p.username}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen w-screen items-center justify-center bg-background select-none">
+          <p className="text-xs font-semibold text-muted-foreground animate-pulse">Loading Delta Auth...</p>
+        </div>
+      }
+    >
+      <AuthPageContent />
+    </Suspense>
   );
 }
