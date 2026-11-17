@@ -41,6 +41,26 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'groups' | 'channels' | 'pinned'>('all');
   const [menuConvId, setMenuConvId] = useState<string | null>(null);
 
+  // Read receipt tick style state
+  const [tickStyle, setTickStyle] = useState<'mint' | 'cyan' | 'amber' | 'blue'>('mint');
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('delta_tick_style') as any;
+      if (stored && ['mint', 'cyan', 'amber', 'blue'].includes(stored)) {
+        setTickStyle(stored);
+      }
+      const handleStorage = () => {
+        const updated = localStorage.getItem('delta_tick_style') as any;
+        if (updated && ['mint', 'cyan', 'amber', 'blue'].includes(updated)) {
+          setTickStyle(updated);
+        }
+      };
+      window.addEventListener('storage', handleStorage);
+      return () => window.removeEventListener('storage', handleStorage);
+    }
+  }, []);
+
   // Filter conversations based on query and filter tab
   const filteredConversations = conversations.filter((c) => {
     // Filter type
@@ -361,7 +381,17 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                           {isOwnLastMsg && lastMsg && (
                             <span className="shrink-0">
                               {lastMsg.status === 'read' ? (
-                                <CheckCheck className="w-3.5 h-3.5 text-delta-600 dark:text-delta-400 stroke-[2.5]" />
+                                <CheckCheck
+                                  className={`w-3.5 h-3.5 stroke-[2.6] ${
+                                    tickStyle === 'cyan'
+                                      ? 'text-cyan-500 dark:text-cyan-400'
+                                      : tickStyle === 'amber'
+                                      ? 'text-amber-500 dark:text-amber-400'
+                                      : tickStyle === 'blue'
+                                      ? 'text-sky-500 dark:text-sky-400'
+                                      : 'text-emerald-500 dark:text-emerald-400'
+                                  }`}
+                                />
                               ) : lastMsg.status === 'delivered' ? (
                                 <CheckCheck className="w-3.5 h-3.5 text-muted-foreground stroke-[2]" />
                               ) : (

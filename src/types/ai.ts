@@ -1,6 +1,6 @@
 import { MessageType, Profile } from './index';
 
-export type AiProvider = 'gemini' | 'openai' | 'anthropic' | 'ollama' | 'mock';
+export type AiProvider = 'delta-ai' | 'gemini' | 'openai' | 'anthropic' | 'ollama' | 'mock';
 
 export type LanguageDialect = 'tanglish' | 'hinglish' | 'spanglish' | 'english' | 'tamil' | 'hindi';
 

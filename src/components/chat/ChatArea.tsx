@@ -54,6 +54,7 @@ import { callAudio } from '@/lib/callAudio';
 import { Message, Profile, MessageType } from '@/types';
 import { DeltaLogoWithText, DeltaLogoWithoutText } from '@/components/brand/DeltaLogo';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
+import { FormattedMessage } from './FormattedMessage';
 import { expandOneWordCue, summarizeConversationThread, rewriteMessageWithAi } from '@/lib/ai/deltaAiEngine';
 import { ThreadSummaryResult } from '@/types/ai';
 import { toast } from 'sonner';
@@ -136,6 +137,26 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
 
   // Scroll to bottom floating button state
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  // Read receipt tick style state
+  const [tickStyle, setTickStyle] = useState<'mint' | 'cyan' | 'amber' | 'blue'>('mint');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('delta_tick_style') as any;
+      if (stored && ['mint', 'cyan', 'amber', 'blue'].includes(stored)) {
+        setTickStyle(stored);
+      }
+      const handleStorage = () => {
+        const updated = localStorage.getItem('delta_tick_style') as any;
+        if (updated && ['mint', 'cyan', 'amber', 'blue'].includes(updated)) {
+          setTickStyle(updated);
+        }
+      };
+      window.addEventListener('storage', handleStorage);
+      return () => window.removeEventListener('storage', handleStorage);
+    }
+  }, []);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1484,11 +1505,9 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
                       </div>
                     )}
 
-                    {/* Text Content */}
+                    {/* Text Content with Rich Formatting */}
                     {msg.type !== 'poll' && msg.type !== 'call' && (
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words font-normal">
-                        {msg.content}
-                      </p>
+                      <FormattedMessage content={msg.content} isOwn={isOwn} />
                     )}
 
                     {/* Interactive Template & Action Buttons */}
@@ -1634,7 +1653,17 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
                           ) : msg.is_optimistic ? (
                             <Clock className="w-3 h-3 animate-spin opacity-80" />
                           ) : msg.status === 'read' ? (
-                            <CheckCheck className="w-3.5 h-3.5 text-sky-300 stroke-[2.6]" />
+                            <CheckCheck
+                              className={`w-3.5 h-3.5 stroke-[2.8] drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.5)] transition-colors ${
+                                tickStyle === 'cyan'
+                                  ? 'text-cyan-300'
+                                  : tickStyle === 'amber'
+                                  ? 'text-amber-300'
+                                  : tickStyle === 'blue'
+                                  ? 'text-sky-300'
+                                  : 'text-emerald-300'
+                              }`}
+                            />
                           ) : msg.status === 'delivered' ? (
                             <CheckCheck className="w-3.5 h-3.5 text-white/70 stroke-[2]" />
                           ) : (

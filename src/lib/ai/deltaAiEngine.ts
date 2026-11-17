@@ -956,14 +956,30 @@ export async function processDeltaAiMessage(
   // 3. Greetings & Help
   if (lower.includes('hi') || lower.includes('hello') || lower.includes('vanakkam') || lower.includes('help')) {
     return {
-      text: `Vanakkam! ⚡ I am **Delta AI**, your sovereign personal assistant powered by Google Gemini.\n\nHere are some things you can ask me to do:\n\n1. **Auto-Pilot Meal Status:**\n   - Say *"sptn"* (if you had lunch) or *"inu ila"* (if you haven't)\n   - Delta will auto-reply accurately whenever friends ask *"Saptyaa daa?"*!\n2. **Schedule Messages:**\n   - *"Send a message to Diva - Sptyaa daa at 3:02 PM"*\n   - *"3:02 PM-ku Diva-ku 'Sptyaa daa' nu message anupidu"*\n3. **Set Reminders:**\n   - *"Remind me to check deployment at 5:00 PM"*\n4. **Open-ended Questions:**\n   - Ask me anything in English or Tanglish!`,
+      text: `Vanakkam! ⚡ I am *Delta AI*, your sovereign personal assistant.
+
+Here is what I can do for you:
+
+🍽️ *Auto-Pilot Meal Status*
+• Say *"sptn"* (if you had lunch) or *"inu ila"* (if you haven't)
+• Delta will auto-reply accurately whenever friends ask *"Saptyaa daa?"*!
+
+⏰ *Schedule Messages*
+• *"Send a message to Diva - Sptyaa daa at 3:02 PM"*
+• *"3:02 PM-ku Diva-ku 'Sptyaa daa' nu message anupidu"*
+
+🔔 *Set Reminders*
+• *"Remind me to check deployment at 5:00 PM"*
+
+💬 *Open-ended Questions*
+• Ask me anything in English or Tanglish!`,
     };
   }
 
-  // 4. Try Google Gemini API if user has a Gemini API Key or via callGeminiApi
+  // 4. Try Cloud AI if user has an API Key or via callGeminiApi
   const geminiResponse = await callGeminiApi(
     userText,
-    'You are Delta AI, a helpful, friendly, and culturally authentic AI assistant inside Delta Messenger. You speak fluent English and natural Tanglish (Tamil-English mixed) where appropriate. Keep your answers concise, engaging, and clear.',
+    'You are Delta AI, the sovereign personal intelligence engine built into Delta Messenger. Never identify as Gemini or Google AI. Always identify strictly as Delta AI. You speak fluent English and natural Tanglish (Tamil-English mixed) where appropriate. Keep your answers concise, engaging, and clear. Format your responses cleanly with concise structure, clear bullet points, and elegant typography.',
     context.geminiApiKey
   );
 
@@ -975,7 +991,10 @@ export async function processDeltaAiMessage(
 
   // Default conversational response fallback
   return {
-    text: `Got it! I understand: "${userText}".\n\n💡 **Tip:** You can say *"sptn"* or *"inu ila"* to set your lunch status for auto-replies, or ask me to schedule a message:\n👉 *"Send a message to Diva - Sptyaa daa at 3:02 PM"*`,
+    text: `Got it! I understand: "${userText}".
+
+💡 *Tip:* You can say *"sptn"* or *"inu ila"* to set your lunch status for auto-replies, or ask me to schedule a message:
+👉 *"Send a message to Diva - Sptyaa daa at 3:02 PM"*`,
   };
 }
 
@@ -994,8 +1013,8 @@ export async function generateAiResponse(request: AiGenerateRequest): Promise<Ai
     if (geminiRes?.text) {
       return {
         id: `ai-gen-${Date.now()}`,
-        provider: 'gemini',
-        model: 'gemini-1.5-flash',
+        provider: 'delta-ai',
+        model: 'delta-neural-v1',
         output: geminiRes.text,
         usage: {
           promptTokens: 120,

@@ -35,10 +35,10 @@ export async function POST(req: NextRequest) {
           const parsed = JSON.parse(jsonMatch[0]);
           return NextResponse.json({
             success: true,
-            provider: 'gemini',
+            provider: 'delta-ai',
             sentiment: parsed.sentiment || 'neutral',
             score: parsed.score ?? 0.5,
-            reason: parsed.reason || 'Analyzed with Gemini 1.5 Flash',
+            reason: parsed.reason || 'Analyzed with Delta AI Intelligence',
           });
         }
       } catch (e) {}

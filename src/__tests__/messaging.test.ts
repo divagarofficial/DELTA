@@ -7,6 +7,7 @@ import {
   normalizePhoneNumber,
   isValidPhoneNumber,
 } from '@/lib/utils';
+import { renderInlineFormattedText } from '@/components/chat/FormattedMessage';
 import { ConversationMember, Message, Profile } from '@/types';
 
 describe('Delta Messaging Utilities & Business Rules', () => {
@@ -278,6 +279,32 @@ describe('Delta Messaging Utilities & Business Rules', () => {
       expect(satelliteMsg.satellite_meta?.constellation).toContain('Direct-to-Cell');
       expect(satelliteMsg.satellite_meta?.latency_ms).toBeGreaterThan(500);
       expect(satelliteMsg.satellite_meta?.signal_quality).toBe('optimal');
+    });
+  });
+
+  describe('Rich Text Message Formatter (renderInlineFormattedText)', () => {
+    it('returns raw text unchanged when no formatting symbols are present', () => {
+      const res = renderInlineFormattedText('Hello world', false);
+      expect(res).toBe('Hello world');
+    });
+
+    it('parses single and double asterisk bold text into strong elements', () => {
+      const res1 = renderInlineFormattedText('Hello *Delta AI* world', false);
+      expect(Array.isArray(res1)).toBe(true);
+
+      const res2 = renderInlineFormattedText('Hello **Delta AI** world', false);
+      expect(Array.isArray(res2)).toBe(true);
+    });
+
+    it('parses inline code, italics, and URLs', () => {
+      const resCode = renderInlineFormattedText('Run `npm test` now', false);
+      expect(Array.isArray(resCode)).toBe(true);
+
+      const resItalic = renderInlineFormattedText('This is _italic_ text', false);
+      expect(Array.isArray(resItalic)).toBe(true);
+
+      const resUrl = renderInlineFormattedText('Visit https://delta.im for details', false);
+      expect(Array.isArray(resUrl)).toBe(true);
     });
   });
 });

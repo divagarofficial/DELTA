@@ -42,7 +42,7 @@ Output strictly JSON matching this structure:
           const parsed = JSON.parse(jsonMatch[0]);
           return NextResponse.json({
             success: true,
-            provider: 'gemini',
+            provider: 'delta-ai',
             template: parsed,
           });
         }

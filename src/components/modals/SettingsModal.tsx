@@ -8,6 +8,7 @@ import {
   Bell,
   Database,
   CheckCircle2,
+  CheckCheck,
   AlertCircle,
   Copy,
   ExternalLink,
@@ -73,6 +74,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [profilePhoto, setProfilePhoto] = useState<PrivacySetting>(currentUser?.privacy_profile_photo || 'everyone');
   const [phonePrivacy, setPhonePrivacy] = useState<PrivacySetting>(currentUser?.privacy_phone_number || 'contacts');
   const [screenLock, setScreenLock] = useState<boolean>(false);
+
+  // Read receipt tick style state
+  const [tickStyle, setTickStyle] = useState<'mint' | 'cyan' | 'amber' | 'blue'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('delta_tick_style');
+      if (stored && ['mint', 'cyan', 'amber', 'blue'].includes(stored)) {
+        return stored as any;
+      }
+    }
+    return 'mint';
+  });
   const [disappearingDefault, setDisappearingDefault] = useState<string>('0');
 
   // Notification state
@@ -339,34 +351,34 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {/* AI & Auto-Pilot Tab */}
           {activeTab === 'ai' && (
             <div className="space-y-4 animate-fade-in">
-              {/* 1. Google Gemini API Key */}
+              {/* 1. Delta Cloud AI Engine */}
               <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-cyan-500/10 border border-violet-500/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-violet-500 animate-pulse" />
-                    <span className="font-bold text-sm text-foreground">Google Gemini API</span>
+                    <span className="font-bold text-sm text-foreground">Delta Intelligence Engine</span>
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                     geminiKey
                       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300'
                       : 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300'
                   }`}>
-                    {geminiKey ? '🟢 Gemini 1.5 Flash Connected' : '⚡ Delta Local Engine'}
+                    {geminiKey ? '🟢 Cloud Neural Engine Connected' : '⚡ Delta Local Engine'}
                   </span>
                 </div>
 
                 <p className="text-muted-foreground text-xs leading-relaxed">
-                  Delta uses Google&apos;s free <strong>Gemini 1.5 Flash API</strong> for ultra-fast Tanglish intelligence and open conversational capabilities without training a model.
+                  Delta operates with sovereign on-device heuristics and connects optionally to high-speed cloud intelligence for natural language parsing, Tanglish translation, and autonomous scheduling.
                 </p>
 
                 <div>
                   <label className="font-semibold text-muted-foreground block mb-1">
-                    Gemini API Key (Free from Google AI Studio)
+                    Cloud AI Key (Optional BYOK)
                   </label>
                   <div className="flex items-center gap-2">
                     <input
                       type="password"
-                      placeholder="AIzaSy..."
+                      placeholder="Enter AI API Key..."
                       value={geminiKey}
                       onChange={(e) => {
                         setGeminiKey(e.target.value);
@@ -390,7 +402,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   </div>
                   {isAiSaved && (
                     <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
-                      ✅ Key saved to local storage! Delta AI is now using Gemini 1.5 Flash.
+                      ✅ Key saved to local storage! Delta AI is operating with full cloud neural intelligence.
                     </p>
                   )}
                 </div>
@@ -528,7 +540,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     Read Receipts
                   </span>
                   <span className="text-muted-foreground text-[11px]">
-                    If disabled, double violet checkmarks won&apos;t be sent or received for direct messages.
+                    If disabled, double checkmarks won&apos;t be sent or received for direct messages.
                   </span>
                 </div>
                 <input
@@ -538,6 +550,56 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   className="w-4 h-4 rounded text-delta-600 focus:ring-delta-500 cursor-pointer shrink-0"
                 />
               </div>
+
+              {/* 2b. High-Contrast Read Receipt Double-Tick Style */}
+              {readReceipts && (
+                <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground text-xs block">
+                      Read Receipt Tick Indicator Style
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      Theme-safe high contrast
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px] leading-relaxed">
+                    Choose high-contrast alternatives designed to pop with supreme clarity on Delta&apos;s purple chat bubbles:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {[
+                      { id: 'mint', name: 'Electric Mint', desc: 'Max Purple Contrast (Default)', color: 'text-emerald-400' },
+                      { id: 'cyan', name: 'Neon Aqua', desc: 'Vivid High-Luminosity Cyan', color: 'text-cyan-400' },
+                      { id: 'amber', name: 'Golden Glow', desc: 'Warm Amber High-Contrast', color: 'text-amber-400' },
+                      { id: 'blue', name: 'Classic Blue', desc: 'Enhanced with Drop-Shadow', color: 'text-sky-300' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setTickStyle(opt.id as any);
+                          if (typeof window !== 'undefined') {
+                            localStorage.setItem('delta_tick_style', opt.id);
+                            window.dispatchEvent(new Event('storage'));
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                          tickStyle === opt.id
+                            ? 'bg-delta-500/10 border-delta-500 text-foreground ring-1 ring-delta-500/30'
+                            : 'bg-card border-border/80 text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-foreground">
+                            {opt.name}
+                          </span>
+                          <CheckCheck className={`w-4 h-4 ${opt.color} stroke-[2.8] drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.5)]`} />
+                        </div>
+                        <span className="text-[10px] leading-tight opacity-75">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 3. Mobile Number Privacy */}
               <div className="pt-2 border-t border-border">
