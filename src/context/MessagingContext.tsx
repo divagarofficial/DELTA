@@ -135,6 +135,11 @@ interface MessagingContextType {
   setMealStatus: (status: MealStatus) => void;
   isAiAutoPilot: boolean;
   toggleAiAutoPilot: () => void;
+  // Contact Blocking
+  blockedUserIds: string[];
+  blockContact: (targetId: string) => void;
+  unblockContact: (targetId: string) => void;
+  isContactBlocked: (targetId?: string | null) => boolean;
 }
 
 const MessagingContext = createContext<MessagingContextType | undefined>(undefined);
@@ -176,6 +181,40 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       return next;
     });
   }, []);
+
+  // Contact Blocking State
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+
+  const blockContact = useCallback((targetId: string) => {
+    if (!targetId) return;
+    setBlockedUserIds((prev) => {
+      if (prev.includes(targetId)) return prev;
+      const next = [...prev, targetId];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('delta_blocked_users', JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const unblockContact = useCallback((targetId: string) => {
+    if (!targetId) return;
+    setBlockedUserIds((prev) => {
+      const next = prev.filter((id) => id !== targetId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('delta_blocked_users', JSON.stringify(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const isContactBlocked = useCallback(
+    (targetId?: string | null) => {
+      if (!targetId) return false;
+      return blockedUserIds.includes(targetId);
+    },
+    [blockedUserIds]
+  );
 
   // Phone Contact Sync State
   const [syncedContacts, setSyncedContacts] = useState<SyncedPhoneContact[]>([]);
@@ -240,6 +279,17 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
       const storedAutoPilot = localStorage.getItem('delta_ai_autopilot');
       if (storedAutoPilot !== null) {
         setIsAiAutoPilot(storedAutoPilot === 'true');
+      }
+      const storedBlocked = localStorage.getItem('delta_blocked_users');
+      if (storedBlocked) {
+        try {
+          const parsed = JSON.parse(storedBlocked);
+          if (Array.isArray(parsed)) {
+            setBlockedUserIds(parsed);
+          }
+        } catch (e) {
+          console.error(e);
+        }
       }
 
       if (storedConvs) {
@@ -660,6 +710,16 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
     options?: SendMessageOptions
   ) => {
     if (!activeConversationId || !currentUser) return;
+
+    // Enforce contact blocking
+    const activeConv = conversations.find((c) => c.id === activeConversationId);
+    const otherMember = activeConv?.members?.find((m) => m.user_id !== currentUser.id);
+    const recipientId = otherMember?.user_id || activeConv?.id;
+    if (recipientId && isContactBlocked(recipientId)) {
+      console.warn('Cannot send message: Contact is blocked.');
+      return;
+    }
+
     if (!content.trim() && !options?.attachments?.length && !options?.pollData) return;
 
     const tempId = `msg-opt-${Date.now()}`;
@@ -1108,6 +1168,10 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
 
   // WebRTC Audio/Video Call handlers
   const startCall = (targetProfile: Profile, callType: CallType) => {
+    if (isContactBlocked(targetProfile.id)) {
+      console.warn('Cannot initiate call to blocked contact');
+      return;
+    }
     const newCall: CallSession = {
       id: `call-${Date.now()}`,
       caller_id: currentUser?.id || 'caller',
@@ -1418,6 +1482,11 @@ export function MessagingProvider({ children }: { children: React.ReactNode }) {
         setMealStatus,
         isAiAutoPilot,
         toggleAiAutoPilot,
+        // Contact Blocking
+        blockedUserIds,
+        blockContact,
+        unblockContact,
+        isContactBlocked,
       }}
     >
       {children}

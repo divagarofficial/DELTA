@@ -19,6 +19,7 @@ import {
 import { useMessaging } from '@/context/MessagingContext';
 import { useAuth } from '@/context/AuthContext';
 import { formatConversationTime, getInitials, getAvatarColor } from '@/lib/utils';
+import { UserAvatar } from '@/components/brand/UserAvatar';
 import { Conversation } from '@/types';
 
 interface ConversationListProps {
@@ -299,23 +300,13 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                             : 'bg-border/80 group-hover:bg-delta-500/50'
                         }`}
                       >
-                        <div
-                          className={`w-full h-full rounded-full overflow-hidden flex items-center justify-center font-extrabold text-xs text-white ring-1 ring-card ${
-                            conv.avatar_url
-                              ? 'bg-muted'
-                              : `bg-gradient-to-tr ${getAvatarColor(conv.title || conv.id)}`
-                          }`}
-                        >
-                          {conv.avatar_url ? (
-                            <img
-                              src={conv.avatar_url}
-                              alt=""
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
-                            />
-                          ) : (
-                            <span>{getInitials(conv.title || 'D')}</span>
-                          )}
-                        </div>
+                        <UserAvatar
+                          name={conv.title || 'User'}
+                          avatarUrl={conv.avatar_url}
+                          size="md"
+                          isAi={isAi}
+                          className="w-full h-full"
+                        />
                       </div>
 
                       {/* Online dot */}
@@ -400,27 +391,15 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                 )}
 
                 {/* Avatar with Status badge */}
-                <div
-                  className={`relative shrink-0 w-12 h-12 rounded-full overflow-hidden flex items-center justify-center font-extrabold text-sm text-white shadow-2xs ring-1 ring-border/80 ${
-                    conv.avatar_url
-                      ? 'bg-muted'
-                      : `bg-gradient-to-tr ${getAvatarColor(conv.title || conv.id)}`
-                  }`}
-                >
-                  {conv.avatar_url ? (
-                    <img
-                      src={conv.avatar_url}
-                      alt={conv.title || ''}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  ) : (
-                    <span>{getInitials(conv.title || 'D')}</span>
-                  )}
-
-                  {/* Online dot for direct chats */}
-                  {isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-card shadow-xs" />
-                  )}
+                <div className="relative shrink-0">
+                  <UserAvatar
+                    name={conv.title || 'User'}
+                    avatarUrl={conv.avatar_url}
+                    size="lg"
+                    isAi={isAi}
+                    showOnline={conv.type === 'direct'}
+                    isOnline={isOnline}
+                  />
 
                   {/* Group / Channel overlay icon badge */}
                   {conv.type === 'group' && (

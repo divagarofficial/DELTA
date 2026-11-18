@@ -66,6 +66,35 @@ export function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+export function getFirstLetter(name?: string): string {
+  if (!name || !name.trim()) return 'D';
+  const cleaned = name.replace(/^[^a-zA-Z0-9]+/, '').trim();
+  if (!cleaned) return name.trim().charAt(0).toUpperCase() || 'D';
+  return cleaned.charAt(0).toUpperCase();
+}
+
+export function getAvatarStyle(identifier: string): { background: string; color: string } {
+  const gradients = [
+    'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', // Indigo to Purple
+    'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)', // Blue to Cyan
+    'linear-gradient(135deg, #10b981 0%, #0d9488 100%)', // Emerald to Teal
+    'linear-gradient(135deg, #ec4899 0%, #f43f5e 100%)', // Pink to Rose
+    'linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)', // Amber to Orange
+    'linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)', // Violet to Fuchsia
+    'linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%)', // Sky to Blue
+    'linear-gradient(135deg, #14b8a6 0%, #059669 100%)', // Teal to Emerald
+  ];
+  let hash = 0;
+  for (let i = 0; i < (identifier || 'Delta').length; i++) {
+    hash = (identifier || 'Delta').charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % gradients.length;
+  return {
+    background: gradients[index],
+    color: '#ffffff',
+  };
+}
+
 export function getAvatarColor(identifier: string): string {
   const colors = [
     'from-indigo-500 to-purple-600',

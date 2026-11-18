@@ -22,17 +22,26 @@ import {
 import { useMessaging } from '@/context/MessagingContext';
 import { useAuth } from '@/context/AuthContext';
 import { getInitials } from '@/lib/utils';
+import { UserAvatar } from '@/components/brand/UserAvatar';
 import { generateSafetyNumber } from '@/lib/security';
+import { toast } from 'sonner';
 
 interface ConversationDetailsProps {
   onClose: () => void;
 }
 
 export function ConversationDetails({ onClose }: ConversationDetailsProps) {
-  const { activeConversation, startCall, toggleMuteConversation, messages } = useMessaging();
+  const {
+    activeConversation,
+    startCall,
+    toggleMuteConversation,
+    messages,
+    isContactBlocked,
+    blockContact,
+    unblockContact,
+  } = useMessaging();
   const { currentUser, registeredUsers } = useAuth();
   const [disappearingDuration, setDisappearingDuration] = useState('0');
-  const [isBlocked, setIsBlocked] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -57,6 +66,9 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
         registeredUsers.find((p) => p.display_name === activeConversation.title) ||
         null
       : null;
+
+  const targetBlockId = partnerProfile?.id || activeConversation.id;
+  const isBlocked = isContactBlocked(targetBlockId);
 
   const safetyNumbers = generateSafetyNumber(
     currentUser?.id || 'delta-user-me',
@@ -91,17 +103,13 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
 
       {/* Profile Overview */}
       <div className="p-6 flex flex-col items-center text-center border-b border-border/80 bg-muted/20">
-        <div className="w-24 h-24 rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-2xl text-foreground mb-3.5 ring-4 ring-border/80 shadow-md">
-          {activeConversation.avatar_url ? (
-            <img
-              src={activeConversation.avatar_url}
-              alt={activeConversation.title || ''}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <span>{getInitials(activeConversation.title || 'D')}</span>
-          )}
-        </div>
+        <UserAvatar
+          name={activeConversation.title || 'User'}
+          avatarUrl={activeConversation.avatar_url}
+          size="2xl"
+          isAi={activeConversation.id === 'conv-delta-ai'}
+          className="mb-3.5 shadow-md ring-4 ring-border/80"
+        />
         <h2 className="font-bold text-lg text-foreground leading-tight">
           {activeConversation.title}
         </h2>
@@ -121,11 +129,29 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
         )}
 
         {/* Quick Action Buttons */}
-        {partnerProfile && (
+        {!isGroup && activeConversation.id !== 'conv-delta-ai' && (
           <div className="flex items-center gap-3 mt-4">
             <button
-              onClick={() => startCall(partnerProfile, 'audio')}
-              className="flex flex-col items-center gap-1 p-2 rounded-xl text-muted-foreground hover:text-delta-600 hover:bg-delta-50 dark:hover:bg-delta-950 transition-colors"
+              onClick={() => {
+                if (isBlocked) {
+                  toast.error(`Cannot call ${activeConversation.title} while blocked`);
+                  return;
+                }
+                const callTarget = partnerProfile || {
+                  id: activeConversation.id,
+                  username: activeConversation.title?.toLowerCase().replace(/\s+/g, '_') || 'user',
+                  display_name: activeConversation.title || 'User',
+                  avatar_url: activeConversation.avatar_url,
+                  presence_status: 'offline' as const,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                };
+                startCall(callTarget, 'audio');
+              }}
+              disabled={isBlocked}
+              className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
+                isBlocked ? 'opacity-40 cursor-not-allowed text-muted-foreground' : 'text-muted-foreground hover:text-delta-600 hover:bg-delta-50 dark:hover:bg-delta-950 cursor-pointer'
+              }`}
             >
               <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
                 <Phone className="w-4 h-4" />
@@ -133,8 +159,26 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
               <span className="text-[10px] font-semibold">Audio</span>
             </button>
             <button
-              onClick={() => startCall(partnerProfile, 'video')}
-              className="flex flex-col items-center gap-1 p-2 rounded-xl text-muted-foreground hover:text-delta-600 hover:bg-delta-50 dark:hover:bg-delta-950 transition-colors"
+              onClick={() => {
+                if (isBlocked) {
+                  toast.error(`Cannot video call ${activeConversation.title} while blocked`);
+                  return;
+                }
+                const callTarget = partnerProfile || {
+                  id: activeConversation.id,
+                  username: activeConversation.title?.toLowerCase().replace(/\s+/g, '_') || 'user',
+                  display_name: activeConversation.title || 'User',
+                  avatar_url: activeConversation.avatar_url,
+                  presence_status: 'offline' as const,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                };
+                startCall(callTarget, 'video');
+              }}
+              disabled={isBlocked}
+              className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
+                isBlocked ? 'opacity-40 cursor-not-allowed text-muted-foreground' : 'text-muted-foreground hover:text-delta-600 hover:bg-delta-50 dark:hover:bg-delta-950 cursor-pointer'
+              }`}
             >
               <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
                 <Video className="w-4 h-4" />
@@ -251,13 +295,11 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
               return (
                 <div key={m.id || member.id} className="flex items-center justify-between gap-2 text-xs">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-full overflow-hidden bg-muted shrink-0 flex items-center justify-center font-bold text-[10px]">
-                      {member.avatar_url ? (
-                        <img src={member.avatar_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        getInitials(member.display_name)
-                      )}
-                    </div>
+                    <UserAvatar
+                      name={member.display_name}
+                      avatarUrl={member.avatar_url}
+                      size="xs"
+                    />
                     <span className="truncate font-medium text-foreground">
                       {member.display_name} {member.id === currentUser?.id ? '(You)' : ''}
                     </span>
@@ -274,17 +316,27 @@ export function ConversationDetails({ onClose }: ConversationDetailsProps) {
 
       {/* Block & Report Actions */}
       <div className="p-4 space-y-2">
-        <button
-          onClick={() => setIsBlocked(!isBlocked)}
-          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-            isBlocked
-              ? 'bg-red-50 text-red-600 dark:bg-red-950 font-bold'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          }`}
-        >
-          <Ban className="w-4 h-4" />
-          {isBlocked ? 'Unblock Contact' : 'Block Contact'}
-        </button>
+        {!isGroup && activeConversation.id !== 'conv-delta-ai' && (
+          <button
+            onClick={() => {
+              if (isBlocked) {
+                unblockContact(targetBlockId);
+                toast.success(`Unblocked ${activeConversation.title}`);
+              } else {
+                blockContact(targetBlockId);
+                toast.info(`Blocked ${activeConversation.title}`);
+              }
+            }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              isBlocked
+                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+                : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+            }`}
+          >
+            <Ban className="w-4 h-4" />
+            {isBlocked ? `Unblock ${activeConversation.title}` : `Block ${activeConversation.title}`}
+          </button>
+        )}
 
         <button
           onClick={() => setShowReportDialog(true)}

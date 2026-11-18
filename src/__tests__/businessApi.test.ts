@@ -51,11 +51,7 @@ describe('Delta Business Suite & WhatsApp Cloud API Compatibility Engine', () =>
         recipient: '+919988776655',
         category: 'UTILITY',
         message_type: 'template:order_dispatched',
-        meta_whatsapp_rate: 0.115,
-        delta_rate: 0.0,
-        saved_amount: 0.115,
         currency: 'INR',
-        status: 'delivered',
       });
       const metrics = businessStore.getCumulativeSavings();
       expect(metrics.totalMessages).toBeGreaterThanOrEqual(1);

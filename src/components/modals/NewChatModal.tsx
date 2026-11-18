@@ -19,6 +19,7 @@ import {
 import { useMessaging } from '@/context/MessagingContext';
 import { useAuth } from '@/context/AuthContext';
 import { getInitials } from '@/lib/utils';
+import { UserAvatar } from '@/components/brand/UserAvatar';
 import { Profile, SyncedPhoneContact } from '@/types';
 
 interface NewChatModalProps {
@@ -308,13 +309,11 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
                   onClick={() => handleStartDirect(user)}
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted cursor-pointer transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-xs shrink-0">
-                    {user.avatar_url ? (
-                      <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      getInitials(user.display_name)
-                    )}
-                  </div>
+                  <UserAvatar
+                    name={user.display_name}
+                    avatarUrl={user.avatar_url}
+                    size="md"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <p className="font-semibold text-xs text-foreground truncate">
@@ -529,13 +528,11 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
                           className="flex items-center justify-between p-2 rounded-xl border border-border/50 bg-card hover:bg-muted/60 transition-colors"
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div className="w-9 h-9 rounded-full overflow-hidden bg-delta-100 dark:bg-delta-950 text-delta-700 dark:text-delta-300 flex items-center justify-center font-bold text-xs shrink-0">
-                              {profile?.avatar_url ? (
-                                <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                getInitials(c.name)
-                              )}
-                            </div>
+                            <UserAvatar
+                              name={c.name}
+                              avatarUrl={profile?.avatar_url}
+                              size="sm"
+                            />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold text-xs text-foreground truncate">{c.name}</p>
@@ -599,9 +596,10 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
                         className="flex items-center justify-between p-2 rounded-xl border border-border/30 bg-muted/20 hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-[11px] text-muted-foreground shrink-0">
-                            {getInitials(c.name)}
-                          </div>
+                          <UserAvatar
+                            name={c.name}
+                            size="sm"
+                          />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-xs text-foreground truncate">{c.name}</p>
                             <p className="text-[10px] text-muted-foreground font-mono truncate">{c.phone_number}</p>
@@ -670,13 +668,11 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
                       className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-[10px] shrink-0">
-                          {user.avatar_url ? (
-                            <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            getInitials(user.display_name)
-                          )}
-                        </div>
+                        <UserAvatar
+                          name={user.display_name}
+                          avatarUrl={user.avatar_url}
+                          size="xs"
+                        />
                         <div className="min-w-0">
                           <p className="font-medium text-xs text-foreground truncate">
                             {user.display_name}

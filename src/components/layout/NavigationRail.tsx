@@ -21,6 +21,7 @@ import { DeltaLogoWithoutText } from '@/components/brand/DeltaLogo';
 import { useAuth } from '@/context/AuthContext';
 import { useMessaging } from '@/context/MessagingContext';
 import { getInitials } from '@/lib/utils';
+import { UserAvatar } from '@/components/brand/UserAvatar';
 import { useRouter } from 'next/navigation';
 
 interface NavigationRailProps {
@@ -203,33 +204,29 @@ export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
             onClick={() => setShowPersonaMenu((prev) => !prev)}
             aria-label="User Profile and Persona Switcher"
             title={`${currentUser?.display_name} (@${currentUser?.username})`}
-            className="group relative w-11 h-11 rounded-full overflow-hidden ring-2 ring-border hover:ring-delta-500 transition-all focus:outline-none flex items-center justify-center bg-delta-100 text-delta-800 font-bold text-xs shadow-xs"
+            className="group relative rounded-full focus:outline-none transition-all hover:scale-105 active:scale-95"
           >
-            {currentUser?.avatar_url ? (
-              <img
-                src={currentUser.avatar_url}
-                alt={currentUser.display_name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-              />
-            ) : (
-              <span>{getInitials(currentUser?.display_name || 'U')}</span>
-            )}
-            {/* Live presence indicator dot */}
-            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-card" />
+            <UserAvatar
+              name={currentUser?.display_name || 'User'}
+              avatarUrl={currentUser?.avatar_url}
+              size="md"
+              showOnline
+              isOnline
+              className="ring-2 ring-border hover:ring-delta-500"
+            />
           </button>
 
           {/* Persona & Account dropdown */}
           {showPersonaMenu && (
             <div className="absolute left-16 bottom-0 w-72 bg-card/95 backdrop-blur-xl border border-border shadow-2xl rounded-2xl p-3 z-50 text-sm animate-fade-in reaction-bar-shadow">
               <div className="flex items-center gap-3 pb-3 border-b border-border/70">
-                <div className="relative w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-xs shrink-0 ring-1 ring-border">
-                  {currentUser?.avatar_url ? (
-                    <img src={currentUser.avatar_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    getInitials(currentUser?.display_name || '')
-                  )}
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-1 ring-card" />
-                </div>
+                <UserAvatar
+                  name={currentUser?.display_name || 'User'}
+                  avatarUrl={currentUser?.avatar_url}
+                  size="md"
+                  showOnline
+                  isOnline
+                />
                 <div className="truncate flex-1">
                   <p className="font-bold text-foreground truncate leading-tight">{currentUser?.display_name}</p>
                   <p className="text-xs text-muted-foreground truncate leading-tight mt-0.5">@{currentUser?.username}</p>
@@ -268,13 +265,11 @@ export function NavigationRail({ onOpenSettings }: NavigationRailProps) {
                             : 'hover:bg-muted text-foreground'
                         }`}
                       >
-                        <div className="w-6 h-6 rounded-full overflow-hidden bg-muted shrink-0 text-[10px] flex items-center justify-center font-bold">
-                          {profile.avatar_url ? (
-                            <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            getInitials(profile.display_name)
-                          )}
-                        </div>
+                        <UserAvatar
+                          name={profile.display_name}
+                          avatarUrl={profile.avatar_url}
+                          size="xs"
+                        />
                         <span className="truncate flex-1">{profile.display_name}</span>
                         {isCurrent && (
                           <span className="w-2 h-2 rounded-full bg-delta-600 animate-pulse" />
