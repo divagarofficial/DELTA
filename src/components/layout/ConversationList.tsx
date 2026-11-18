@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -9,16 +9,16 @@ import {
   Check,
   CheckCheck,
   MoreVertical,
-  Filter,
   X,
   Users,
   Radio,
   Sparkles,
   MessageSquareDashed,
+  Trash2,
 } from 'lucide-react';
 import { useMessaging } from '@/context/MessagingContext';
 import { useAuth } from '@/context/AuthContext';
-import { formatConversationTime, getInitials } from '@/lib/utils';
+import { formatConversationTime, getInitials, getAvatarColor } from '@/lib/utils';
 import { Conversation } from '@/types';
 
 interface ConversationListProps {
@@ -34,17 +34,19 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
     markAsRead,
     togglePinConversation,
     toggleMuteConversation,
+    clearChat,
   } = useMessaging();
   const { currentUser, registeredUsers } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'groups' | 'channels' | 'pinned'>('all');
   const [menuConvId, setMenuConvId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Read receipt tick style state
   const [tickStyle, setTickStyle] = useState<'mint' | 'cyan' | 'amber' | 'blue'>('mint');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('delta_tick_style') as any;
       if (stored && ['mint', 'cyan', 'amber', 'blue'].includes(stored)) {
@@ -61,15 +63,40 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
     }
   }, []);
 
+  // Global Ctrl+K / Cmd+K shortcut to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!menuConvId) return;
+    const handleOutsideClick = () => setMenuConvId(null);
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, [menuConvId]);
+
+  // Counts for filter pills
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+  const unreadConvsCount = conversations.filter((c) => (c.unread_count || 0) > 0).length;
+  const groupsCount = conversations.filter((c) => c.type === 'group').length;
+  const channelsCount = conversations.filter((c) => c.type === 'channel').length;
+  const pinnedCount = conversations.filter((c) => c.is_pinned).length;
+
   // Filter conversations based on query and filter tab
   const filteredConversations = conversations.filter((c) => {
-    // Filter type
     if (filterType === 'unread' && (c.unread_count || 0) === 0) return false;
     if (filterType === 'groups' && c.type !== 'group') return false;
     if (filterType === 'channels' && c.type !== 'channel') return false;
     if (filterType === 'pinned' && !c.is_pinned) return false;
 
-    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchTitle = (c.title || '').toLowerCase().includes(q);
@@ -86,8 +113,6 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
   });
 
-  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
-
   const handleSelect = (conv: Conversation) => {
     setActiveConversationId(conv.id);
     if ((conv.unread_count || 0) > 0) {
@@ -96,11 +121,18 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
   };
 
   return (
-    <div className="w-full md:w-[320px] lg:w-[370px] shrink-0 border-r border-border/80 bg-card/60 backdrop-blur-xl flex flex-col h-full select-none">
+    <div className="w-full md:w-[320px] lg:w-[370px] shrink-0 border-r border-border/80 bg-card/70 backdrop-blur-2xl flex flex-col h-full select-none transition-colors">
       {/* 1. Header with Stats & New Chat */}
-      <div className="px-4 py-3.5 border-b border-border/70 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h1 className="font-extrabold text-xl text-foreground tracking-tight">Chats</h1>
+      <div className="px-4 py-3.5 border-b border-border/70 flex items-center justify-between bg-card/40">
+        <div className="flex items-center gap-2.5">
+          <h1 className="font-extrabold text-xl text-foreground tracking-tight flex items-center gap-2">
+            <span>Chats</span>
+            {totalUnread > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-delta-600 to-violet-600 text-[11px] font-black text-white shadow-2xs">
+                {totalUnread} new
+              </span>
+            )}
+          </h1>
           <span className="px-2 py-0.5 rounded-full bg-muted text-[11px] font-bold text-muted-foreground">
             {conversations.length}
           </span>
@@ -111,7 +143,7 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
             onClick={onOpenNewChat}
             title="Start new conversation or group"
             aria-label="New Chat"
-            className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-tr from-delta-600 to-violet-600 text-white hover:opacity-95 transition-all shadow-sm active:scale-95 focus:outline-none focus:ring-2 focus:ring-delta-500"
+            className="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-tr from-delta-600 to-violet-600 text-white hover:opacity-95 transition-all shadow-sm active:scale-95 focus:outline-none focus:ring-2 focus:ring-delta-500/50 hover:shadow-md"
           >
             <Plus className="w-5 h-5 stroke-[2.4]" />
           </button>
@@ -123,34 +155,40 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
         <div className="relative flex items-center">
           <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 pointer-events-none" />
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search messages or contacts..."
             aria-label="Search conversations"
-            className="w-full bg-muted/60 hover:bg-muted/90 focus:bg-background text-foreground placeholder:text-muted-foreground text-xs pl-10 pr-8 py-2.5 rounded-xl border border-transparent focus:border-delta-500/30 focus:ring-2 focus:ring-delta-500/20 focus:outline-none transition-all shadow-2xs"
+            className="w-full bg-muted/50 hover:bg-muted/80 focus:bg-background text-foreground placeholder:text-muted-foreground text-xs pl-10 pr-16 py-2.5 rounded-xl border border-transparent focus:border-delta-500/30 focus:ring-2 focus:ring-delta-500/20 focus:outline-none transition-all shadow-2xs"
           />
-          {searchQuery && (
+          {searchQuery ? (
             <button
               onClick={() => setSearchQuery('')}
               className="absolute right-3 text-muted-foreground hover:text-foreground p-0.5"
             >
               <X className="w-3.5 h-3.5" />
             </button>
+          ) : (
+            <kbd className="absolute right-3 hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono font-medium text-muted-foreground bg-card border border-border/80 rounded-md shadow-2xs pointer-events-none">
+              Ctrl K
+            </kbd>
           )}
         </div>
 
-        {/* Filter Pills with Counts */}
+        {/* Filter Pills with Live Counters */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
           <button
             onClick={() => setFilterType('all')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all duration-150 shrink-0 ${
+            className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all duration-150 shrink-0 flex items-center gap-1.5 ${
               filterType === 'all'
                 ? 'bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shadow-2xs border border-delta-200 dark:border-delta-800'
                 : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
-            All
+            <span>All</span>
+            <span className="text-[10px] opacity-75 font-normal">({conversations.length})</span>
           </button>
 
           <button
@@ -162,49 +200,74 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
             }`}
           >
             <span>Unread</span>
-            {totalUnread > 0 && (
-              <span className="w-2 h-2 rounded-full bg-delta-600 animate-pulse" />
+            {unreadConvsCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-delta-600 text-white text-[9px] font-bold">
+                {unreadConvsCount}
+              </span>
             )}
           </button>
 
-          <button
-            onClick={() => setFilterType('groups')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all duration-150 shrink-0 ${
-              filterType === 'groups'
-                ? 'bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shadow-2xs border border-delta-200 dark:border-delta-800'
-                : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            Groups
-          </button>
+          {groupsCount > 0 && (
+            <button
+              onClick={() => setFilterType('groups')}
+              className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all duration-150 shrink-0 flex items-center gap-1 ${
+                filterType === 'groups'
+                  ? 'bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shadow-2xs border border-delta-200 dark:border-delta-800'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <span>Groups</span>
+              <span className="text-[10px] opacity-75 font-normal">({groupsCount})</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setFilterType('channels')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all duration-150 shrink-0 ${
-              filterType === 'channels'
-                ? 'bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shadow-2xs border border-delta-200 dark:border-delta-800'
-                : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            Channels
-          </button>
+          {channelsCount > 0 && (
+            <button
+              onClick={() => setFilterType('channels')}
+              className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all duration-150 shrink-0 flex items-center gap-1 ${
+                filterType === 'channels'
+                  ? 'bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shadow-2xs border border-delta-200 dark:border-delta-800'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <span>Channels</span>
+              <span className="text-[10px] opacity-75 font-normal">({channelsCount})</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setFilterType('pinned')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all duration-150 shrink-0 flex items-center gap-1 ${
-              filterType === 'pinned'
-                ? 'bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shadow-2xs border border-delta-200 dark:border-delta-800'
-                : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
-            }`}
-          >
-            <Pin className="w-3 h-3 rotate-45" />
-            <span>Pinned</span>
-          </button>
+          {pinnedCount > 0 && (
+            <button
+              onClick={() => setFilterType('pinned')}
+              className={`px-3 py-1 rounded-full text-xs font-semibold capitalize transition-all duration-150 shrink-0 flex items-center gap-1 ${
+                filterType === 'pinned'
+                  ? 'bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 shadow-2xs border border-delta-200 dark:border-delta-800'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Pin className="w-3 h-3 rotate-45 text-delta-600" />
+              <span>Pinned</span>
+              <span className="text-[10px] opacity-75 font-normal">({pinnedCount})</span>
+            </button>
+          )}
         </div>
 
         {/* Quick-Access Favorite Contacts Strip */}
         <div className="pt-2 border-t border-border/40">
           <div className="flex items-center gap-3 overflow-x-auto no-scrollbar px-1 py-1">
+            {/* Quick action: Add New */}
+            <button
+              onClick={onOpenNewChat}
+              className="flex flex-col items-center gap-1 shrink-0 group focus:outline-none"
+              title="Start New Chat"
+            >
+              <div className="w-11 h-11 rounded-full border-2 border-dashed border-delta-400 dark:border-delta-600/60 hover:border-delta-600 bg-delta-50/50 dark:bg-delta-950/40 flex items-center justify-center text-delta-600 dark:text-delta-400 group-hover:scale-105 transition-all shadow-2xs">
+                <Plus className="w-4 h-4 stroke-[2.6]" />
+              </div>
+              <span className="text-[10px] text-muted-foreground group-hover:text-delta-600 font-medium">
+                New
+              </span>
+            </button>
+
             {conversations
               .filter((c) => c.type === 'direct' || c.is_pinned)
               .slice(0, 7)
@@ -215,6 +278,7 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                 ) || registeredUsers.find((p) => p.display_name === conv.title);
                 const isOnline = partner?.presence_status === 'online';
                 const firstName = (conv.title || '').split(' ')[0];
+                const isAi = conv.id === 'conv-delta-ai';
 
                 return (
                   <button
@@ -227,13 +291,21 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                       <div
                         className={`w-11 h-11 rounded-full p-[2px] transition-all duration-200 ${
                           isSelected
-                            ? 'bg-gradient-to-tr from-delta-600 via-violet-500 to-fuchsia-500 ring-2 ring-delta-500/30'
+                            ? 'bg-gradient-to-tr from-delta-600 via-violet-500 to-fuchsia-500 ring-2 ring-delta-500/40 shadow-sm scale-105'
                             : (conv.unread_count || 0) > 0
                             ? 'bg-gradient-to-tr from-delta-600 to-pink-500'
+                            : isAi
+                            ? 'bg-gradient-to-tr from-violet-500 via-fuchsia-500 to-amber-400'
                             : 'bg-border/80 group-hover:bg-delta-500/50'
                         }`}
                       >
-                        <div className="w-full h-full rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-xs text-foreground ring-1 ring-card">
+                        <div
+                          className={`w-full h-full rounded-full overflow-hidden flex items-center justify-center font-extrabold text-xs text-white ring-1 ring-card ${
+                            conv.avatar_url
+                              ? 'bg-muted'
+                              : `bg-gradient-to-tr ${getAvatarColor(conv.title || conv.id)}`
+                          }`}
+                        >
                           {conv.avatar_url ? (
                             <img
                               src={conv.avatar_url}
@@ -241,7 +313,7 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
                             />
                           ) : (
-                            getInitials(conv.title || 'D')
+                            <span>{getInitials(conv.title || 'D')}</span>
                           )}
                         </div>
                       </div>
@@ -260,7 +332,7 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                     </div>
 
                     <span
-                      className={`text-[10px] max-w-[50px] truncate text-center ${
+                      className={`text-[10px] max-w-[54px] truncate text-center ${
                         isSelected
                           ? 'font-extrabold text-delta-600 dark:text-delta-400'
                           : 'text-muted-foreground group-hover:text-foreground font-medium'
@@ -278,17 +350,17 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
       {/* 3. Conversation Items List */}
       <div className="flex-1 overflow-y-auto px-2 py-1 space-y-1">
         {sortedConversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-52 px-4 text-center">
+          <div className="flex flex-col items-center justify-center h-52 px-4 text-center animate-fade-in">
             <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center text-muted-foreground mb-3">
               <MessageSquareDashed className="w-6 h-6" />
             </div>
             <p className="text-sm font-bold text-foreground">No conversations found</p>
             <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-              Try searching with a different term or start a fresh message.
+              {searchQuery ? `No matches for "${searchQuery}"` : 'Start a fresh message or connect with friends.'}
             </p>
             <button
               onClick={onOpenNewChat}
-              className="mt-3 text-xs font-bold text-delta-600 hover:text-delta-700 bg-delta-50 dark:bg-delta-950 px-3.5 py-1.5 rounded-xl border border-delta-200 dark:border-delta-800 transition-colors"
+              className="mt-3 text-xs font-bold text-white bg-delta-600 hover:bg-delta-700 px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
             >
               Start New Chat
             </button>
@@ -300,6 +372,7 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
             const isBeingTyped = typingList.length > 0;
             const lastMsg = conv.last_message;
             const isOwnLastMsg = lastMsg?.sender_id === currentUser?.id;
+            const isAi = conv.id === 'conv-delta-ai';
 
             // Resolve contact presence
             const partner =
@@ -318,16 +391,27 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                 className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer transition-all duration-150 border ${
                   isSelected
                     ? 'bg-delta-500/10 dark:bg-delta-500/15 border-delta-500/30 text-foreground ring-1 ring-delta-500/20 shadow-xs'
-                    : 'border-transparent hover:bg-muted/50 text-foreground'
+                    : 'border-transparent hover:bg-muted/60 text-foreground'
                 }`}
               >
+                {/* Active Indicator Left Pill */}
+                {isSelected && (
+                  <span className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full bg-gradient-to-b from-delta-600 to-violet-600 shadow-xs" />
+                )}
+
                 {/* Avatar with Status badge */}
-                <div className="relative shrink-0 w-12 h-12 rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-sm text-foreground shadow-2xs ring-1 ring-border/80">
+                <div
+                  className={`relative shrink-0 w-12 h-12 rounded-full overflow-hidden flex items-center justify-center font-extrabold text-sm text-white shadow-2xs ring-1 ring-border/80 ${
+                    conv.avatar_url
+                      ? 'bg-muted'
+                      : `bg-gradient-to-tr ${getAvatarColor(conv.title || conv.id)}`
+                  }`}
+                >
                   {conv.avatar_url ? (
                     <img
                       src={conv.avatar_url}
                       alt={conv.title || ''}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   ) : (
                     <span>{getInitials(conv.title || 'D')}</span>
@@ -354,9 +438,16 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                 {/* Content Details */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="font-bold text-sm text-foreground truncate">
-                      {conv.title}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-bold text-[13.5px] text-foreground truncate">
+                        {conv.title}
+                      </span>
+                      {isAi && (
+                        <span className="px-1.5 py-0.2 rounded-md bg-delta-100 text-delta-800 dark:bg-delta-950 dark:text-delta-300 text-[9px] font-extrabold">
+                          AI
+                        </span>
+                      )}
+                    </div>
                     <span
                       className={`text-[11px] shrink-0 font-medium ${
                         (conv.unread_count || 0) > 0
@@ -443,18 +534,18 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                     e.stopPropagation();
                     setMenuConvId(menuConvId === conv.id ? null : conv.id);
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-foreground rounded-lg transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-foreground rounded-lg transition-opacity hover:bg-muted"
                   title="Conversation options"
                   aria-label="Conversation options"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
 
-                {/* Dropdown menu */}
+                {/* Dropdown context menu */}
                 {menuConvId === conv.id && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-3 top-10 bg-card/95 backdrop-blur-xl border border-border shadow-xl rounded-2xl py-1.5 w-48 z-40 text-xs animate-fade-in reaction-bar-shadow"
+                    className="absolute right-3 top-10 bg-card/95 backdrop-blur-xl border border-border shadow-2xl rounded-2xl py-1.5 w-52 z-40 text-xs animate-fade-in reaction-bar-shadow"
                   >
                     <button
                       onClick={() => {
@@ -463,8 +554,8 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted transition-colors font-medium"
                     >
-                      <Pin className="w-3.5 h-3.5" />
-                      {conv.is_pinned ? 'Unpin chat' : 'Pin chat to top'}
+                      <Pin className="w-3.5 h-3.5 text-delta-600" />
+                      {conv.is_pinned ? 'Unpin conversation' : 'Pin to top'}
                     </button>
                     <button
                       onClick={() => {
@@ -483,8 +574,20 @@ export function ConversationList({ onOpenNewChat }: ConversationListProps) {
                       }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted transition-colors font-medium"
                     >
-                      <CheckCheck className="w-3.5 h-3.5" />
+                      <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
                       Mark as read
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Clear all messages in "${conv.title}"?`)) {
+                          clearChat(conv.id);
+                          setMenuConvId(null);
+                        }
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 transition-colors font-medium border-t border-border/50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Clear chat
                     </button>
                   </div>
                 )}

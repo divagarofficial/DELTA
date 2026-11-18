@@ -40,6 +40,8 @@ import {
   Command,
   Satellite,
   ArrowUpRight,
+  MessageSquarePlus,
+  ArrowRight,
 } from 'lucide-react';
 import { useMessaging } from '@/context/MessagingContext';
 import { useAuth } from '@/context/AuthContext';
@@ -47,6 +49,7 @@ import {
   formatMessageTime,
   formatFileSize,
   getInitials,
+  getAvatarColor,
   formatLastSeen,
   formatMessageDateSeparator,
 } from '@/lib/utils';
@@ -63,13 +66,16 @@ import { createClient } from '@/lib/supabase/client';
 interface ChatAreaProps {
   onBackMobile?: () => void;
   onOpenDetails?: () => void;
+  onOpenNewChat?: () => void;
 }
 
 type WallpaperTheme = 'cosmic' | 'midnight' | 'emerald' | 'sapphire' | 'minimal';
 
-export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
+export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAreaProps) {
   const {
+    conversations,
     activeConversation,
+    setActiveConversationId,
     messages,
     sendMessage,
     editMessage,
@@ -308,61 +314,126 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
     return (
       <div className={`flex-1 hidden md:flex flex-col items-center justify-center p-8 wallpaper-${wallpaperTheme} select-none text-center relative overflow-hidden`}>
         {/* Ambient background glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-delta-500/10 dark:bg-delta-500/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-delta-500/15 via-violet-500/10 to-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="max-w-lg flex flex-col items-center relative z-10 animate-fade-in">
+        <div className="max-w-xl flex flex-col items-center relative z-10 animate-fade-in space-y-6">
           {/* Logo with radiant elevation */}
-          <div className="mb-6 p-5 rounded-3xl bg-card/85 backdrop-blur-2xl border border-border/80 shadow-2xl flex items-center justify-center hover:scale-105 transition-transform">
-            <DeltaLogoWithText height={60} />
+          <div className="p-5 rounded-3xl bg-card/90 backdrop-blur-2xl border border-border/80 shadow-2xl flex items-center justify-center hover:scale-105 transition-transform">
+            <DeltaLogoWithText height={56} />
           </div>
 
-          <h2 className="text-3xl font-extrabold tracking-tight text-foreground">
-            Everything connects.
-          </h2>
-          <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-sm">
-            End-to-end encrypted messaging, peer-to-peer WebRTC calling, and real-time database synchronization.
-          </p>
-
-          {/* Feature Highlights Grid */}
-          <div className="grid grid-cols-2 gap-3 mt-8 w-full text-left">
-            <div className="p-4 rounded-2xl bg-card/75 backdrop-blur-xl border border-border/70 shadow-xs flex flex-col gap-1.5 hover:border-delta-500/30 transition-colors">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <Lock className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-bold text-foreground">End-to-End Encrypted</p>
-              <p className="text-[11px] text-muted-foreground">Private & tamper-resistant</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-card/75 backdrop-blur-xl border border-border/70 shadow-xs flex flex-col gap-1.5 hover:border-delta-500/30 transition-colors">
-              <div className="w-8 h-8 rounded-xl bg-delta-500/10 text-delta-600 dark:text-delta-400 flex items-center justify-center">
-                <Video className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-bold text-foreground">HD Audio & Video</p>
-              <p className="text-[11px] text-muted-foreground">Direct WebRTC connection</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-card/75 backdrop-blur-xl border border-border/70 shadow-xs flex flex-col gap-1.5 hover:border-delta-500/30 transition-colors">
-              <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                <Zap className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-bold text-foreground">Low Latency Sync</p>
-              <p className="text-[11px] text-muted-foreground">Instant receipts & delivery</p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-card/75 backdrop-blur-xl border border-border/70 shadow-xs flex flex-col gap-1.5 hover:border-delta-500/30 transition-colors">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <Shield className="w-4 h-4" />
-              </div>
-              <p className="text-xs font-bold text-foreground">RLS Database Guard</p>
-              <p className="text-[11px] text-muted-foreground">PostgreSQL row-level isolation</p>
-            </div>
+          <div className="space-y-1.5 text-center">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+              Everything connects.
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+              Fast, sovereign, end-to-end encrypted messaging with voice notes, WebRTC calls, and AI assistance.
+            </p>
           </div>
 
-          {/* Quick Keyboard shortcuts */}
-          <div className="mt-8 flex items-center gap-3 text-[11px] text-muted-foreground font-medium">
-            <span>Press <kbd className="px-1.5 py-0.5 rounded-lg bg-muted border border-border text-foreground font-mono">Enter</kbd> to send</span>
-            <span>•</span>
-            <span><kbd className="px-1.5 py-0.5 rounded-lg bg-muted border border-border text-foreground font-mono">Shift + Enter</kbd> for newline</span>
+          {/* Interactive Quick Launch Cards Grid */}
+          <div className="grid grid-cols-2 gap-3 w-full text-left">
+            <button
+              onClick={() => onOpenNewChat?.()}
+              className="p-3.5 rounded-2xl bg-card/85 backdrop-blur-xl border border-border/70 hover:border-delta-500/50 hover:bg-delta-500/5 dark:hover:bg-delta-500/10 shadow-xs flex flex-col gap-1 transition-all duration-150 active:scale-98 group cursor-pointer text-left"
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="w-8 h-8 rounded-xl bg-delta-500/15 text-delta-600 dark:text-delta-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <MessageSquarePlus className="w-4 h-4 stroke-[2.4]" />
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-delta-600 group-hover:translate-x-0.5 transition-all" />
+              </div>
+              <p className="text-xs font-bold text-foreground mt-1">Start New Chat</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">Connect with friends, contacts, or teams</p>
+            </button>
+
+            <button
+              onClick={() => setActiveConversationId('conv-delta-ai')}
+              className="p-3.5 rounded-2xl bg-card/85 backdrop-blur-xl border border-border/70 hover:border-amber-500/50 hover:bg-amber-500/5 dark:hover:bg-amber-500/10 shadow-xs flex flex-col gap-1 transition-all duration-150 active:scale-98 group cursor-pointer text-left"
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-4 h-4 stroke-[2.4]" />
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
+              </div>
+              <p className="text-xs font-bold text-foreground mt-1">Chat with Delta AI</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">Smart summaries, meal auto-pilot, and reminders</p>
+            </button>
+
+            <button
+              onClick={() => onOpenNewChat?.()}
+              className="p-3.5 rounded-2xl bg-card/85 backdrop-blur-xl border border-border/70 hover:border-sky-500/50 hover:bg-sky-500/5 dark:hover:bg-sky-500/10 shadow-xs flex flex-col gap-1 transition-all duration-150 active:scale-98 group cursor-pointer text-left"
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Users className="w-4 h-4 stroke-[2.4]" />
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-sky-600 group-hover:translate-x-0.5 transition-all" />
+              </div>
+              <p className="text-xs font-bold text-foreground mt-1">Create Group</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">Multi-user group messaging with poll support</p>
+            </button>
+
+            <button
+              onClick={() => setShowSatelliteRadar(true)}
+              className="p-3.5 rounded-2xl bg-card/85 backdrop-blur-xl border border-border/70 hover:border-emerald-500/50 hover:bg-emerald-500/5 dark:hover:bg-emerald-500/10 shadow-xs flex flex-col gap-1 transition-all duration-150 active:scale-98 group cursor-pointer text-left"
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Satellite className="w-4 h-4 stroke-[2.4]" />
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
+              </div>
+              <p className="text-xs font-bold text-foreground mt-1">Satellite Direct-to-Cell</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">3GPP Rel-17 NTN orbital passes and telemetry</p>
+            </button>
+          </div>
+
+          {/* Quick Jump to Existing Conversations */}
+          {conversations.length > 0 && (
+            <div className="w-full pt-2 border-t border-border/40">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                Quick Jump
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {conversations.slice(0, 5).map((c) => (
+                  <button
+                    key={`jump-${c.id}`}
+                    onClick={() => setActiveConversationId(c.id)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card/90 hover:bg-card border border-border/70 hover:border-delta-500/40 text-xs font-semibold text-foreground transition-all active:scale-95 shadow-2xs hover:shadow-xs cursor-pointer"
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-full overflow-hidden flex items-center justify-center text-[9px] font-extrabold text-white shrink-0 ${
+                        c.avatar_url
+                          ? 'bg-muted'
+                          : `bg-gradient-to-tr ${getAvatarColor(c.title || c.id)}`
+                      }`}
+                    >
+                      {c.avatar_url ? (
+                        <img src={c.avatar_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{getInitials(c.title || 'D')}</span>
+                      )}
+                    </div>
+                    <span className="truncate max-w-[120px]">{c.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Security & Protocol Footer */}
+          <div className="pt-2 flex flex-col items-center gap-1.5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 font-medium">
+              <Lock className="w-3.5 h-3.5 text-emerald-500" />
+              <span>End-to-End Encrypted • PostgreSQL RLS Security</span>
+            </div>
+            <div className="flex items-center gap-3 text-[10px] opacity-75">
+              <span>Press <kbd className="px-1 py-0.2 rounded bg-muted border border-border font-mono">Enter</kbd> to send</span>
+              <span>•</span>
+              <span><kbd className="px-1 py-0.2 rounded bg-muted border border-border font-mono">Ctrl + K</kbd> to search</span>
+            </div>
           </div>
         </div>
       </div>
@@ -669,7 +740,11 @@ export function ChatArea({ onBackMobile, onOpenDetails }: ChatAreaProps) {
           {/* Contact Avatar with Live Presence Ring */}
           <div
             onClick={onOpenDetails}
-            className="relative w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center font-bold text-sm shrink-0 cursor-pointer ring-2 ring-border/80 hover:ring-delta-500 transition-all shadow-2xs group"
+            className={`relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center font-extrabold text-sm text-white shrink-0 cursor-pointer ring-2 ring-border/80 hover:ring-delta-500 transition-all shadow-2xs group ${
+              activeConversation.avatar_url
+                ? 'bg-muted'
+                : `bg-gradient-to-tr ${getAvatarColor(activeConversation.title || activeConversation.id)}`
+            }`}
           >
             {activeConversation.avatar_url ? (
               <img

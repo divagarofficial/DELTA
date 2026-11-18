@@ -70,6 +70,7 @@ export function MessagingWorkspace() {
             <ChatArea
               onBackMobile={() => setActiveConversationId(null)}
               onOpenDetails={() => setShowDetails(!showDetails)}
+              onOpenNewChat={() => setShowNewChat(true)}
             />
 
             {showDetails && (
