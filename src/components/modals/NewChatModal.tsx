@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Share2,
   Trash2,
-  MessageCircle,
   Phone,
   Sparkles,
 } from 'lucide-react';
@@ -88,28 +87,6 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
     onClose();
   };
 
-  const handleStartDirectByPhone = (phoneNumber: string, defaultName?: string) => {
-    const raw10 = phoneNumber.replace(/\D/g, '').slice(-10);
-    // 1. Check if user exists among registered users
-    const matchedUser = registeredUsers.find((u) =>
-      u.phone_number?.replace(/\D/g, '').endsWith(raw10)
-    );
-    if (matchedUser) {
-      createConversation(matchedUser.id);
-      onClose();
-      return;
-    }
-
-    // 2. Check if user is in synced contacts
-    const matchedContact = syncedContacts.find((c) =>
-      c.phone_number.replace(/\D/g, '').endsWith(raw10)
-    );
-
-    const displayName = defaultName || matchedContact?.name || `+91 ${raw10}`;
-    createConversation(`phone-${raw10}`, displayName);
-    onClose();
-  };
-
   const handleToggleMember = (userId: string) => {
     setSelectedUserIds((prev) =>
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
@@ -176,8 +153,8 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
   };
 
   // Invite via Web Share API or sms: protocol
-  const handleInviteContact = (contact: SyncedPhoneContact) => {
-    const inviteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://delta.app';
+  const handleInviteContact = (contact: { name: string; phone_number: string }) => {
+    const inviteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://delta-messaging.vercel.app';
     const shareText = `Hey ${contact.name}! I'm using Delta for fast, secure messaging. Connect with me here: ${inviteUrl}`;
 
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -262,25 +239,64 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-border/40 p-2">
-              {/* Quick Action: Direct message by phone number */}
-              {cleanDigits.length >= 7 && (
-                <div
-                  onClick={() => handleStartDirectByPhone(cleanDigits)}
-                  className="flex items-center gap-3 p-3 mb-2 rounded-xl bg-delta-50 dark:bg-delta-950/40 border border-delta-200 dark:border-delta-800 hover:bg-delta-100 dark:hover:bg-delta-900 cursor-pointer transition-colors"
-                >
-                  <div className="w-9 h-9 rounded-full bg-delta-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <Phone className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-xs text-foreground">
-                      Start Chat with +91 {cleanDigits.slice(-10)}
-                    </p>
-                    <p className="text-[11px] text-delta-600 dark:text-delta-400">
-                      Click to start a conversation with this mobile number
-                    </p>
-                  </div>
-                </div>
-              )}
+              {/* Quick Action: Registered phone lookup or Invite */}
+              {cleanDigits.length >= 7 && (() => {
+                const matchedUser = registeredUsers.find((u) =>
+                  u.phone_number?.replace(/\D/g, '').endsWith(cleanDigits.slice(-10))
+                );
+                if (matchedUser) {
+                  return (
+                    <div
+                      onClick={() => handleStartDirect(matchedUser)}
+                      className="flex items-center gap-3 p-3 mb-2 rounded-xl bg-delta-50 dark:bg-delta-950/40 border border-delta-200 dark:border-delta-800 hover:bg-delta-100 dark:hover:bg-delta-900 cursor-pointer transition-colors"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-delta-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <Check className="w-4 h-4 stroke-[2.5]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-xs text-foreground">{matchedUser.display_name}</p>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            Registered
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-delta-600 dark:text-delta-400">
+                          {matchedUser.phone_number || `+91 ${cleanDigits.slice(-10)}`} • @{matchedUser.username}
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 rounded-lg bg-delta-600 text-white text-xs font-bold shrink-0">
+                        Chat
+                      </span>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="flex items-center justify-between p-3 mb-2 rounded-xl bg-muted/40 border border-border">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                          <Phone className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-xs text-foreground truncate">+91 {cleanDigits.slice(-10)}</p>
+                          <p className="text-[11px] text-muted-foreground">Not registered on Delta yet</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() =>
+                          handleInviteContact({
+                            name: `+91 ${cleanDigits.slice(-10)}`,
+                            phone_number: `+91 ${cleanDigits.slice(-10)}`,
+                          })
+                        }
+                        className="px-3 py-1 rounded-lg border border-delta-300 dark:border-delta-800 text-delta-600 dark:text-delta-400 text-xs font-semibold hover:bg-delta-50 dark:hover:bg-delta-950 transition-colors flex items-center gap-1.5 shrink-0"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Invite</span>
+                      </button>
+                    </div>
+                  );
+                }
+              })()}
 
               <p className="text-[11px] font-semibold text-muted-foreground uppercase px-2 py-1">
                 Registered Delta Users ({filteredUsers.length})
@@ -594,19 +610,11 @@ export function NewChatModal({ isOpen, onClose }: NewChatModalProps) {
 
                         <div className="flex items-center gap-1 shrink-0 ml-2">
                           <button
-                            onClick={() => handleStartDirectByPhone(c.phone_number, c.name)}
-                            title="Start chat with this contact"
-                            className="px-2.5 py-1 rounded-lg bg-delta-500/10 text-delta-600 dark:text-delta-400 text-xs font-semibold hover:bg-delta-500/20 transition-colors flex items-center gap-1"
-                          >
-                            <MessageCircle className="w-3 h-3" />
-                            <span>Chat</span>
-                          </button>
-                          <button
                             onClick={() => handleInviteContact(c)}
-                            title="Invite contact"
-                            className="px-2.5 py-1 rounded-lg border border-delta-300 dark:border-delta-800 text-delta-600 dark:text-delta-400 text-xs font-semibold hover:bg-delta-50 dark:hover:bg-delta-950 transition-colors flex items-center gap-1"
+                            title="Invite to Delta"
+                            className="px-3 py-1 rounded-lg border border-delta-300 dark:border-delta-800 text-delta-600 dark:text-delta-400 text-xs font-semibold hover:bg-delta-50 dark:hover:bg-delta-950 transition-colors flex items-center gap-1.5"
                           >
-                            <Share2 className="w-3 h-3" />
+                            <Share2 className="w-3.5 h-3.5" />
                             <span>Invite</span>
                           </button>
                           <button
