@@ -1,18 +1,21 @@
 # -----------------------------------------------------------------------------
 # Delta Production Dockerfile for Google Cloud Run
-# Multi-stage optimized build using Node.js 20 Alpine and Next.js Standalone
+# Multi-stage optimized build using Node.js 22 Alpine and Next.js Standalone
 # -----------------------------------------------------------------------------
 
 # Stage 1: Install dependencies
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm ci
 
 # Stage 2: Build the application
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -24,7 +27,7 @@ ENV NODE_ENV=production
 RUN npm run build
 
 # Stage 3: Minimal Production Runner for Google Cloud Run
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -46,4 +49,3 @@ USER nextjs
 EXPOSE 8080
 
 CMD ["node", "server.js"]
-
