@@ -942,7 +942,7 @@ export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAre
           </button>
 
           {activeConversation.type === 'direct' && activeConversation.id !== 'conv-delta-ai' && (
-            <>
+            <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-muted/60 dark:bg-muted/40 border border-border/60 shadow-2xs">
               <button
                 onClick={() => {
                   if (isBlocked) {
@@ -963,8 +963,10 @@ export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAre
                 disabled={isBlocked}
                 title={isBlocked ? 'Contact is blocked' : 'Start HD Audio Call'}
                 aria-label="Audio Call"
-                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${
-                  isBlocked ? 'opacity-40 cursor-not-allowed text-muted-foreground' : 'hover:bg-muted hover:text-foreground'
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 active:scale-95 ${
+                  isBlocked
+                    ? 'opacity-40 cursor-not-allowed text-muted-foreground'
+                    : 'text-delta-600 dark:text-delta-400 hover:bg-card hover:shadow-2xs'
                 }`}
               >
                 <Phone className="w-4 h-4" />
@@ -989,13 +991,15 @@ export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAre
                 disabled={isBlocked}
                 title={isBlocked ? 'Contact is blocked' : 'Start HD Video Call'}
                 aria-label="Video Call"
-                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150 active:scale-95 ${
-                  isBlocked ? 'opacity-40 cursor-not-allowed text-muted-foreground' : 'hover:bg-muted hover:text-foreground'
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-150 active:scale-95 ${
+                  isBlocked
+                    ? 'opacity-40 cursor-not-allowed text-muted-foreground'
+                    : 'text-delta-600 dark:text-delta-400 hover:bg-card hover:shadow-2xs'
                 }`}
               >
                 <Video className="w-4 h-4" />
               </button>
-            </>
+            </div>
           )}
 
           {/* Details toggle */}
@@ -1362,42 +1366,49 @@ export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAre
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-2 select-text"
       >
-        {/* End-to-End Encryption Banner */}
-        <div className="flex justify-center my-2 select-none">
-          <button
-            onClick={onOpenDetails}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 text-amber-800 dark:text-amber-200 text-[11px] max-w-lg text-center shadow-2xs transition-all cursor-pointer group"
-            title="Click to view encryption and security verification"
-          >
-            <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform" />
-            <span>Messages and calls are end-to-end encrypted. Click to verify safety code.</span>
-          </button>
-        </div>
+        {/* End-to-End Encryption Banner (Shown when message history exists) */}
+        {messages.length > 0 && (
+          <div className="flex justify-center my-2 select-none">
+            <button
+              onClick={onOpenDetails}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/20 text-amber-800 dark:text-amber-200 text-[11px] max-w-lg text-center shadow-2xs transition-all cursor-pointer group"
+              title="Click to view encryption and security verification"
+            >
+              <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform" />
+              <span>Messages and calls are end-to-end encrypted. Click to verify safety code.</span>
+            </button>
+          </div>
+        )}
 
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[65vh] py-10 px-4 text-center select-none animate-fade-in relative">
-            {/* Ambient Background Glow Aura */}
+          <div className="flex-1 min-h-[50vh] flex flex-col items-center justify-center py-4 px-3 sm:px-4 text-center select-none animate-fade-in relative z-10 my-auto">
+            {/* Ambient Background Radial Glow */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-gradient-to-tr from-delta-600/15 via-violet-500/10 to-fuchsia-500/15 blur-3xl pointer-events-none -z-10" />
 
-            {/* Premium Conversation Starter Card */}
-            <div className="w-full max-w-md bg-card/85 dark:bg-card/75 backdrop-blur-2xl border border-border/80 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden ring-1 ring-white/10">
-              {/* Top Gradient Highlight */}
+            {/* Premium Conversation Canvas Card */}
+            <div className="w-full max-w-sm sm:max-w-md bg-card/85 dark:bg-card/75 backdrop-blur-2xl border border-border/80 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden ring-1 ring-white/10 transition-all">
+              {/* Top Accent Gradient Line */}
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-violet-500 via-delta-500 to-fuchsia-500" />
 
-              {/* Contact Profile Avatar (renders first letter with gradient circle if no photo) */}
-              <div className="flex justify-center mb-4">
-                <UserAvatar
-                  name={activeConversation.title || 'User'}
-                  avatarUrl={activeConversation.avatar_url}
-                  size="2xl"
-                  isAi={activeConversation.id === 'conv-delta-ai'}
-                  className="ring-4 ring-card shadow-xl hover:scale-105 transition-transform duration-200"
-                />
+              {/* Contact Profile Avatar */}
+              <div className="flex justify-center mb-3">
+                <div className="relative group">
+                  <UserAvatar
+                    name={activeConversation.title || 'User'}
+                    avatarUrl={activeConversation.avatar_url}
+                    size="2xl"
+                    isAi={activeConversation.id === 'conv-delta-ai'}
+                    className="ring-4 ring-card shadow-lg group-hover:scale-105 transition-transform duration-200"
+                  />
+                  {isOnline && (
+                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-card shadow-xs animate-pulse" />
+                  )}
+                </div>
               </div>
 
               {/* Contact Name & Verified Tag */}
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <h3 className="font-black text-xl text-foreground tracking-tight">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <h3 className="font-extrabold text-lg sm:text-xl text-foreground tracking-tight">
                   {activeConversation.title}
                 </h3>
                 {activeConversation.id === 'conv-delta-ai' ? (
@@ -1407,29 +1418,36 @@ export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAre
                 )}
               </div>
 
-              {/* Subtitle */}
-              <p className="text-xs text-muted-foreground mb-4">
+              {/* Subtitle / Handle */}
+              <p className="text-xs text-muted-foreground mb-3">
                 {activeConversation.type === 'direct'
-                  ? 'Encrypted Direct Conversation'
+                  ? partnerProfile?.phone_number
+                    ? `${partnerProfile.phone_number} • Direct Encrypted Conversation`
+                    : 'Direct Encrypted Conversation'
                   : activeConversation.type === 'group'
                   ? `${activeConversation.members?.length || 4} participants in group`
                   : 'Official Verified Channel'}
               </p>
 
-              {/* Security Shield Badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold mb-6 shadow-2xs">
-                <Shield className="w-3.5 h-3.5" />
-                <span>End-to-End Encrypted • Quantum Resistant</span>
-              </div>
+              {/* Clickable Security Badge */}
+              <button
+                type="button"
+                onClick={onOpenDetails}
+                title="Click to view end-to-end encryption & safety numbers"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold mb-4 shadow-2xs transition-all cursor-pointer active:scale-95 group"
+              >
+                <Shield className="w-3.5 h-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
+                <span>End-to-End Encrypted • Quantum Safe</span>
+              </button>
 
               {/* Quick Icebreakers / Conversation Starters */}
-              <div className="text-left mb-2">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80 mb-2.5 text-center">
+              <div className="text-left w-full">
+                <p className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/75 mb-2 text-center">
                   Quick conversation starters
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
-                    { label: '👋 Say Hello', text: 'Hello! How are you?' },
+                    { label: '👋 Say Hello', text: 'Hello! How are you doing today?' },
                     { label: '✨ Good morning', text: 'Good morning! Hope you have a wonderful day ahead.' },
                     { label: '🍛 Sptyaa daa?', text: 'Sptyaa daa? Lunch mudinjidhaa?' },
                     { label: '📞 Free to talk?', text: 'Hey, are you free for a quick call?' },
@@ -1439,10 +1457,10 @@ export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAre
                       type="button"
                       disabled={isBlocked}
                       onClick={() => sendMessage(starter.text)}
-                      className="group flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-muted/60 hover:bg-delta-500/15 border border-border/60 hover:border-delta-500/40 text-xs font-semibold text-foreground transition-all duration-150 active:scale-95 text-left cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="group flex items-center justify-between px-3 py-2 rounded-xl bg-muted/40 hover:bg-delta-500/15 border border-border/60 hover:border-delta-500/40 text-xs font-semibold text-foreground transition-all duration-150 active:scale-95 text-left cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs hover:shadow-xs"
                     >
                       <span className="truncate">{starter.label}</span>
-                      <ArrowRight className="w-3 h-3 text-muted-foreground group-hover:text-delta-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-1.5" />
+                      <ArrowRight className="w-3 h-3 text-muted-foreground group-hover:text-delta-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
                     </button>
                   ))}
                 </div>
@@ -1450,9 +1468,9 @@ export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAre
             </div>
 
             {/* Privacy footnote */}
-            <div className="flex items-center gap-1.5 mt-4 text-[11px] text-muted-foreground/75 max-w-sm">
-              <Lock className="w-3 h-3 shrink-0" />
-              <span>Delta secures all messages with zero Meta fees and PostgreSQL RLS isolation.</span>
+            <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-muted-foreground/70 max-w-sm">
+              <Lock className="w-3 h-3 shrink-0 text-muted-foreground/80" />
+              <span>Zero-knowledge encryption. Zero Meta API fees.</span>
             </div>
           </div>
         ) : (
@@ -2215,7 +2233,7 @@ export function ChatArea({ onBackMobile, onOpenDetails, onOpenNewChat }: ChatAre
                   onChange={(e) => setTextInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={1}
-                  placeholder="Type a message or /poll... (Enter to send, Shift+Enter for newline)"
+                  placeholder="Type a message or /poll..."
                   aria-label="Type a message"
                   className="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground text-sm px-4 py-2.5 max-h-32 resize-none focus:outline-none"
                 />
